@@ -1,0 +1,292 @@
+{
+  "metadata": {
+    "name": "Agentic AI Healthcare Medical Knowledge Base",
+    "version": "1.0",
+    "purpose": "Starter retrieval knowledge base for a healthcare decision-support prototype",
+    "primary_source": "MedlinePlus / U.S. National Library of Medicine",
+    "scope_note": "This knowledge base supports information retrieval and clinical-context briefing. It is not a diagnostic or treatment authority."
+  },
+  "diseases": [
+    {
+      "name": "Hepatitis C",
+      "aliases": [
+        "HCV"
+      ],
+      "description": "Hepatitis C is inflammation of the liver caused by the hepatitis C virus. It can be acute or chronic.",
+      "common_symptoms": [
+        "dark yellow urine",
+        "fatigue",
+        "fever",
+        "gray or clay-colored stools",
+        "joint pain",
+        "loss of appetite",
+        "nausea",
+        "vomiting",
+        "abdominal pain",
+        "jaundice",
+        "yellowish eyes",
+        "yellowish skin"
+      ],
+      "diagnostic_context": [
+        "medical history",
+        "physical examination",
+        "blood tests",
+        "additional liver-damage tests may include blood tests, liver ultrasound, or liver biopsy"
+      ],
+      "important_context": "Many people with hepatitis C have no symptoms, especially during chronic infection.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/hepatitisc.html"
+      }
+    },
+    {
+      "name": "Gastroenteritis",
+      "aliases": [
+        "stomach flu"
+      ],
+      "description": "Gastroenteritis is inflammation of the lining of the stomach and intestines.",
+      "common_symptoms": [
+        "diarrhea",
+        "abdominal pain",
+        "abdominal cramping",
+        "nausea",
+        "vomiting",
+        "fever"
+      ],
+      "diagnostic_context": [
+        "symptom history",
+        "physical examination",
+        "stool tests may be performed"
+      ],
+      "important_context": "Gastroenteritis can sometimes lead to dehydration or severe symptoms.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/gastroenteritis.html"
+      }
+    },
+    {
+      "name": "GERD",
+      "aliases": [
+        "gastroesophageal reflux disease",
+        "acid reflux"
+      ],
+      "description": "GERD is a chronic condition in which stomach contents can move back into the esophagus and cause irritation.",
+      "common_symptoms": [
+        "heartburn",
+        "acid taste",
+        "food regurgitation",
+        "dry cough",
+        "hoarse voice",
+        "trouble swallowing",
+        "nausea",
+        "wheezing"
+      ],
+      "diagnostic_context": [
+        "symptoms and medical history",
+        "upper GI endoscopy",
+        "biopsy",
+        "upper GI x-ray",
+        "esophageal pH testing",
+        "esophageal manometry"
+      ],
+      "important_context": "Chest pain with shortness of breath or pain in the jaw or arm requires medical evaluation because it can indicate a heart problem.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/gerd.html"
+      }
+    },
+    {
+      "name": "Peptic ulcer",
+      "aliases": [
+        "peptic ulcer disease",
+        "gastric ulcer",
+        "duodenal ulcer",
+        "stomach ulcer"
+      ],
+      "description": "A peptic ulcer is a sore in the lining of the stomach or duodenum.",
+      "common_symptoms": [
+        "burning stomach pain",
+        "upper abdominal pain",
+        "nausea",
+        "vomiting",
+        "dark tarry stools",
+        "bloody vomiting",
+        "chest pain",
+        "fatigue",
+        "weight loss",
+        "heartburn"
+      ],
+      "diagnostic_context": [
+        "testing for Helicobacter pylori may use blood, breath, or stool tests",
+        "endoscopy may be used to examine the stomach and duodenum",
+        "x-ray may also be used"
+      ],
+      "important_context": "A perforated ulcer is a medical emergency; gastrointestinal bleeding can also be serious.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/pepticulcer.html"
+      }
+    },
+    {
+      "name": "Migraine",
+      "aliases": [
+        "migraine headache"
+      ],
+      "description": "Migraine is a recurring type of headache that can cause moderate to severe throbbing or pulsing pain.",
+      "common_symptoms": [
+        "headache",
+        "throbbing headache",
+        "nausea",
+        "vomiting",
+        "weakness",
+        "sensitivity to light",
+        "sensitivity to sound",
+        "visual aura"
+      ],
+      "diagnostic_context": [
+        "clinical history and symptom pattern are important",
+        "evaluation may consider the characteristics and phases of the headache"
+      ],
+      "important_context": "Migraine symptoms can occur in phases, and not every person experiences every phase.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/migraine.html"
+      }
+    },
+    {
+      "name": "Asthma",
+      "aliases": [
+        "bronchial asthma"
+      ],
+      "description": "Asthma is a chronic lung disease in which the airways can become inflamed and narrowed.",
+      "common_symptoms": [
+        "wheezing",
+        "cough",
+        "chest tightness",
+        "shortness of breath",
+        "breathing difficulty"
+      ],
+      "diagnostic_context": [
+        "physical examination",
+        "medical history",
+        "spirometry",
+        "peak expiratory flow testing",
+        "fractional exhaled nitric oxide testing",
+        "allergy skin or blood tests when appropriate"
+      ],
+      "important_context": "Asthma attacks can become severe and may sometimes be life-threatening.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/asthma.html"
+      }
+    },
+    {
+      "name": "Hypertension",
+      "aliases": [
+        "high blood pressure",
+        "HTN",
+        "HBP"
+      ],
+      "description": "Hypertension is the medical term for high blood pressure.",
+      "common_symptoms": [
+        "often no symptoms"
+      ],
+      "diagnostic_context": [
+        "blood pressure measurements are used to assess blood pressure",
+        "repeated measurements are important for evaluating persistent high blood pressure"
+      ],
+      "important_context": "Untreated high blood pressure can increase the risk of serious problems including heart disease, stroke, kidney disease, and eye problems.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/highbloodpressure.html"
+      }
+    },
+    {
+      "name": "Paralysis (brain hemorrhage)",
+      "aliases": [
+        "hemorrhagic stroke",
+        "intracerebral hemorrhage",
+        "hemorrhagic stroke"
+      ],
+      "description": "A hemorrhagic stroke occurs when a blood vessel in the brain bursts and causes bleeding in or around the brain.",
+      "common_symptoms": [
+        "sudden severe headache",
+        "weakness",
+        "numbness",
+        "confusion",
+        "trouble speaking",
+        "vision problems",
+        "dizziness",
+        "loss of balance"
+      ],
+      "diagnostic_context": [
+        "physical examination",
+        "medical history",
+        "brain imaging to check for bleeding"
+      ],
+      "important_context": "Stroke symptoms often begin suddenly. Sudden weakness, speech difficulty, vision problems, severe headache, or loss of balance require urgent medical evaluation.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/hemorrhagicstroke.html"
+      }
+    },
+    {
+      "name": "(vertigo) Paroymsal Positional Vertigo",
+      "aliases": [
+        "benign positional vertigo",
+        "benign paroxysmal positional vertigo",
+        "BPPV"
+      ],
+      "description": "Benign positional vertigo is a common type of vertigo caused by a problem in the inner ear.",
+      "common_symptoms": [
+        "vertigo",
+        "dizziness",
+        "loss of balance",
+        "nausea",
+        "vomiting",
+        "vision problems"
+      ],
+      "diagnostic_context": [
+        "physical examination",
+        "medical history",
+        "Dix-Hallpike maneuver may be used"
+      ],
+      "important_context": "Vertigo is typically a spinning sensation. New weakness, slurred speech, or vision problems alongside vertigo can indicate a more serious condition.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/ency/article/001420.htm"
+      }
+    },
+    {
+      "name": "Heart attack",
+      "aliases": [
+        "myocardial infarction",
+        "MI"
+      ],
+      "description": "A heart attack occurs when blood flow to part of the heart becomes blocked and the heart muscle is deprived of oxygen.",
+      "common_symptoms": [
+        "chest pain",
+        "chest discomfort",
+        "shortness of breath",
+        "nausea",
+        "vomiting",
+        "dizziness",
+        "lightheadedness",
+        "sweating",
+        "upper body discomfort",
+        "fatigue"
+      ],
+      "diagnostic_context": [
+        "physical examination",
+        "medical history",
+        "electrocardiogram (ECG)",
+        "blood tests"
+      ],
+      "important_context": "A suspected heart attack is a medical emergency and requires prompt medical evaluation.",
+      "source": {
+        "organization": "MedlinePlus / NIH",
+        "url": "https://medlineplus.gov/heartattack.html"
+      }
+    }
+  ]
+}

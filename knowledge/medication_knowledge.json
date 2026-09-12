@@ -1,0 +1,73 @@
+{
+    "aspirin": {
+        "aliases": [
+            "acetylsalicylic acid"
+        ],
+        "class": "NSAID / antiplatelet",
+        "important_interactions": [
+            {
+                "medication": "warfarin",
+                "severity": "HIGH",
+                "message": "Concurrent use may increase the risk of bleeding.",
+                "action": "Requires professional clinical review."
+            },
+            {
+                "medication": "ibuprofen",
+                "severity": "MODERATE",
+                "message": "Concurrent use may increase gastrointestinal and bleeding risks.",
+                "action": "Requires professional clinical review."
+            }
+        ]
+    },
+    "warfarin": {
+        "aliases": [],
+        "class": "Anticoagulant",
+        "important_interactions": [
+            {
+                "medication": "aspirin",
+                "severity": "HIGH",
+                "message": "Concurrent use may increase the risk of bleeding.",
+                "action": "Requires professional clinical review."
+            }
+        ]
+    },
+    "ibuprofen": {
+        "aliases": [],
+        "class": "NSAID",
+        "important_interactions": [
+            {
+                "medication": "aspirin",
+                "severity": "MODERATE",
+                "message": "Concurrent use may increase gastrointestinal and bleeding risks.",
+                "action": "Requires professional clinical review."
+            }
+        ]
+    },
+    "metformin": {
+        "aliases": [],
+        "class": "Antidiabetic",
+        "important_interactions": []
+    },
+    "paracetamol": {
+        "aliases": [
+            "acetaminophen"
+        ],
+        "class": "Analgesic / antipyretic",
+        "important_interactions": []
+    },
+    "amoxicillin": {
+        "aliases": [],
+        "class": "Antibiotic",
+        "important_interactions": []
+    },
+    "omeprazole": {
+        "aliases": [],
+        "class": "Proton pump inhibitor",
+        "important_interactions": []
+    },
+    "amlodipine": {
+        "aliases": [],
+        "class": "Calcium channel blocker",
+        "important_interactions": []
+    }
+}

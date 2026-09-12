@@ -1,0 +1,114 @@
+{
+    "resourceType": "Bundle",
+    "type": "collection",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "P003",
+                "gender": "male",
+                "birthDate": "2002-05-15"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-001",
+                "code": {
+                    "text": "Hypertension"
+                },
+                "clinicalStatus": {
+                    "text": "active"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-temp",
+                "code": {
+                    "text": "Body Temperature"
+                },
+                "valueQuantity": {
+                    "value": 37.2,
+                    "unit": "°C"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-hr",
+                "code": {
+                    "text": "Heart Rate"
+                },
+                "valueQuantity": {
+                    "value": 82,
+                    "unit": "beats/min"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-bp",
+                "code": {
+                    "text": "Blood Pressure"
+                },
+                "component": [
+                    {
+                        "code": {
+                            "text": "Systolic Blood Pressure"
+                        },
+                        "valueQuantity": {
+                            "value": 138,
+                            "unit": "mmHg"
+                        }
+                    },
+                    {
+                        "code": {
+                            "text": "Diastolic Blood Pressure"
+                        },
+                        "valueQuantity": {
+                            "value": 88,
+                            "unit": "mmHg"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-spo2",
+                "code": {
+                    "text": "Oxygen Saturation"
+                },
+                "valueQuantity": {
+                    "value": 96,
+                    "unit": "%"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationStatement",
+                "id": "med-001",
+                "status": "active",
+                "medicationCodeableConcept": {
+                    "text": "Aspirin"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationStatement",
+                "id": "med-002",
+                "status": "active",
+                "medicationCodeableConcept": {
+                    "text": "Amlodipine"
+                }
+            }
+        }
+    ]
+}
