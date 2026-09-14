@@ -2,7 +2,21 @@ import json
 import pandas as pd
 import joblib
 import streamlit as st
-from fhir.parser import load_fhir_patient
+import datetime
+import sys
+if "supabase_client" in sys.modules:
+    del sys.modules["supabase_client"]
+
+from supabase_client import (
+    get_patients, 
+    get_patient_profile, 
+    save_assessment, 
+    get_assessment_history_by_uuid,
+    get_patient_observations,
+    get_patient_risk_flags,
+    get_patient_medication_alerts,
+    get_patient_doctor_briefings
+)
 
 from knowledge.medication_checker import check_medication_interactions
 
@@ -17,6 +31,35 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+# ============================================================
+# INITIALIZE SESSION STATE
+# ============================================================
+if "patient_id" not in st.session_state:
+    st.session_state["patient_id"] = None
+if "patient_name" not in st.session_state:
+    st.session_state["patient_name"] = None
+if "age" not in st.session_state:
+    st.session_state["age"] = None
+if "sex" not in st.session_state:
+    st.session_state["sex"] = "Select sex"
+if "symptoms_input" not in st.session_state:
+    st.session_state["symptoms_input"] = ""
+if "temperature" not in st.session_state:
+    st.session_state["temperature"] = None
+if "heart_rate" not in st.session_state:
+    st.session_state["heart_rate"] = None
+if "systolic_bp" not in st.session_state:
+    st.session_state["systolic_bp"] = None
+if "diastolic_bp" not in st.session_state:
+    st.session_state["diastolic_bp"] = None
+if "spo2" not in st.session_state:
+    st.session_state["spo2"] = None
+if "medical_history" not in st.session_state:
+    st.session_state["medical_history"] = ""
+if "current_medications" not in st.session_state:
+    st.session_state["current_medications"] = ""
 
 
 # ============================================================
@@ -216,53 +259,29 @@ def calculate_risk_flags(
 
     risk_flags = []
 
-    if temperature >= 39:
+    if temperature is not None:
+        if temperature >= 39:
+            risk_flags.append("High temperature detected")
+        elif temperature < 35:
+            risk_flags.append("Low temperature detected")
 
-        risk_flags.append(
-            "High temperature detected"
-        )
+    if heart_rate is not None:
+        if heart_rate > 100:
+            risk_flags.append("Elevated heart rate detected")
+        elif heart_rate < 60:
+            risk_flags.append("Low heart rate detected")
 
-    elif temperature < 35:
+    if systolic is not None and diastolic is not None:
+        if systolic >= 140 or diastolic >= 90:
+            risk_flags.append("Elevated blood pressure detected")
+        elif systolic < 90 or diastolic < 60:
+            risk_flags.append("Low blood pressure detected")
 
-        risk_flags.append(
-            "Low temperature detected"
-        )
-
-    if heart_rate > 100:
-
-        risk_flags.append(
-            "Elevated heart rate detected"
-        )
-
-    elif heart_rate < 60:
-
-        risk_flags.append(
-            "Low heart rate detected"
-        )
-
-    if systolic >= 140 or diastolic >= 90:
-
-        risk_flags.append(
-            "Elevated blood pressure detected"
-        )
-
-    elif systolic < 90 or diastolic < 60:
-
-        risk_flags.append(
-            "Low blood pressure detected"
-        )
-
-    if spo2 < 90:
-
-        risk_flags.append(
-            "Low oxygen saturation detected"
-        )
-
-    elif spo2 < 94:
-
-        risk_flags.append(
-            "Reduced oxygen saturation detected"
-        )
+    if spo2 is not None:
+        if spo2 < 90:
+            risk_flags.append("Low oxygen saturation detected")
+        elif spo2 < 94:
+            risk_flags.append("Reduced oxygen saturation detected")
 
     return risk_flags
 
@@ -388,76 +407,735 @@ st.markdown(
 st.divider()
 
 # ============================================================
-# FHIR / EHR INTEGRATION
+# NAVIGATION
+# ============================================================
+st.sidebar.markdown("### Navigation")
+app_mode = st.sidebar.radio("Go to", ["Patient Assessment Workflow", "Doctor Dashboard"])
+
+if app_mode == "Doctor Dashboard":
+    st.markdown("## 🏥 Doctor Dashboard")
+    
+    # --------------------------------------------------------
+    # 1. PATIENT SELECTION
+    # --------------------------------------------------------
+    available_patients = get_patients()
+    if not available_patients:
+        st.warning("No patients available in the database.")
+        st.stop()
+        
+    patient_options = {
+        f"{p['patient_id']} - {p['name']}": p["patient_id"] 
+        for p in available_patients
+    }
+    
+    def handle_dashboard_patient_change():
+        pass # state is updated automatically via the selectbox key
+        
+    selected_option = st.selectbox(
+        "Search / Select Patient",
+        options=list(patient_options.keys()),
+        key="dashboard_patient_selector",
+        on_change=handle_dashboard_patient_change
+    )
+    
+    selected_id = patient_options[selected_option]
+    st.session_state["dashboard_patient_id"] = selected_id
+    
+    # Fetch complete patient profile to get UUID
+    profile = get_patient_profile(selected_id)
+    if not profile:
+        st.error("Could not load patient profile.")
+        st.stop()
+        
+    patient_uuid = profile.get("patient_uuid")
+    st.session_state["dashboard_patient_uuid"] = patient_uuid
+    
+    # Fetch all data
+    observations = get_patient_observations(patient_uuid)
+    assessments = get_assessment_history_by_uuid(patient_uuid)
+    risk_flags = get_patient_risk_flags(patient_uuid)
+    med_alerts = get_patient_medication_alerts(patient_uuid)
+    briefings = get_patient_doctor_briefings(patient_uuid)
+    
+    latest_obs = observations[0] if observations else None
+    latest_assessment = assessments[0] if assessments else None
+    
+    st.divider()
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        # --------------------------------------------------------
+        # 2. PATIENT OVERVIEW
+        # --------------------------------------------------------
+        st.markdown("### 👤 Patient Overview")
+        with st.container(border=True):
+            st.markdown(f"**ID:** {profile.get('patient_id')}")
+            st.markdown(f"**Name:** {profile.get('patient_name')}")
+            st.markdown(f"**Age:** {profile.get('age')}")
+            st.markdown(f"**Sex:** {profile.get('gender')}")
+            
+            st.markdown("**Medical History:**")
+            if profile.get('medical_history'):
+                for item in profile.get('medical_history'):
+                    st.markdown(f"- {item}")
+            else:
+                st.write("None")
+                
+            st.markdown("**Current Medications:**")
+            if profile.get('medications'):
+                for item in profile.get('medications'):
+                    st.markdown(f"- {item}")
+            else:
+                st.write("None")
+
+    with col2:
+        # --------------------------------------------------------
+        # 3. LATEST VITALS
+        # --------------------------------------------------------
+        st.markdown("### 📊 Latest Vitals")
+        with st.container(border=True):
+            if latest_obs:
+                st.markdown(f"**❤️ Heart Rate:** {latest_obs.get('heart_rate', 'N/A')} bpm")
+                st.markdown(f"**🫁 SpO₂:** {latest_obs.get('spo2', 'N/A')} %")
+                st.markdown(f"**🌡 Temperature:** {latest_obs.get('temperature', 'N/A')} °C")
+                bp = f"{latest_obs.get('systolic_bp', 'N/A')} / {latest_obs.get('diastolic_bp', 'N/A')}"
+                st.markdown(f"**🩺 Blood Pressure:** {bp} mmHg")
+                
+                rec_at = latest_obs.get("recorded_at", "")
+                st.caption(f"Recorded at: {rec_at} | Source: {latest_obs.get('source', 'UNKNOWN')}")
+            else:
+                st.info("No vital observations available.")
+                
+    st.divider()
+    
+    col3, col4 = st.columns([1, 1])
+    
+    with col3:
+        # --------------------------------------------------------
+        # 4. LATEST AI ASSESSMENT
+        # --------------------------------------------------------
+        st.markdown("### 🤖 Latest AI Assessment")
+        with st.container(border=True):
+            if latest_assessment:
+                st.markdown(f"**Top Candidate:**")
+                st.markdown(f"### {latest_assessment.get('top_prediction')}")
+                st.markdown(f"**Confidence:** {latest_assessment.get('confidence', 0)*100:.1f}%")
+                st.markdown(f"**Confidence Level:** {latest_assessment.get('confidence_level')}")
+                st.markdown(f"**Agentic Decision:** {latest_assessment.get('agent_decision')}")
+                st.markdown(f"**Reason:** {latest_assessment.get('agent_reason')}")
+            else:
+                st.info("No previous AI assessment available.")
+                
+        # --------------------------------------------------------
+        # 8. RISK SUMMARY
+        # --------------------------------------------------------
+        st.markdown("### ⚠ Risk Summary")
+        with st.container(border=True):
+            if latest_assessment and risk_flags:
+                latest_flags = [f for f in risk_flags if f.get("assessment_id") == latest_assessment.get("id")]
+                if latest_flags:
+                    for flag in latest_flags:
+                        st.error(flag.get("risk_message"))
+                else:
+                    st.success("No active risk flags recorded.")
+            else:
+                st.success("No active risk flags recorded.")
+
+    with col4:
+        # --------------------------------------------------------
+        # 9. MEDICATION SAFETY
+        # --------------------------------------------------------
+        st.markdown("### 💊 Medication Safety")
+        with st.container(border=True):
+            if latest_assessment and med_alerts:
+                latest_alerts = [a for a in med_alerts if a.get("assessment_id") == latest_assessment.get("id")]
+                if latest_alerts:
+                    for alert in latest_alerts:
+                        sev = alert.get("severity", "Medium")
+                        color = "red" if sev.lower() == "high" else "orange"
+                        st.markdown(f"**{alert.get('medication_1')} & {alert.get('medication_2')}**")
+                        st.markdown(f"<span style='color:{color}'>Severity: {sev}</span>", unsafe_allow_html=True)
+                        st.markdown(f"*{alert.get('alert_message')}*")
+                        st.divider()
+                else:
+                    st.success("No medication interaction alerts recorded.")
+            else:
+                st.success("No medication interaction alerts recorded.")
+                
+        # --------------------------------------------------------
+        # 7. DOCTOR BRIEFING
+        # --------------------------------------------------------
+        st.markdown("### 🩺 Latest Doctor Briefing")
+        with st.container(border=True):
+            if latest_assessment and briefings:
+                latest_briefing = next((b for b in briefings if b.get("assessment_id") == latest_assessment.get("id")), None)
+                if latest_briefing:
+                    st.markdown(latest_briefing.get("summary"))
+                else:
+                    st.info("No doctor briefing available.")
+            else:
+                st.info("No doctor briefing available.")
+
+    st.divider()
+    
+    # --------------------------------------------------------
+    # 5. ASSESSMENT HISTORY / 6. PATIENT TIMELINE
+    # --------------------------------------------------------
+    st.markdown("### 📜 Patient Timeline / Assessment History")
+    
+    if not assessments and not observations:
+        st.info("No previous assessments found for this patient.")
+    else:
+        timeline_events = []
+        for a in assessments:
+            timeline_events.append({
+                "type": "assessment",
+                "date": a.get("created_at"),
+                "data": a
+            })
+        for o in observations:
+            timeline_events.append({
+                "type": "observation",
+                "date": o.get("recorded_at"),
+                "data": o
+            })
+            
+        timeline_events.sort(key=lambda x: x["date"], reverse=True)
+        
+        current_date = None
+        for event in timeline_events:
+            date_str = event["date"].split("T")[0] if event["date"] and "T" in event["date"] else str(event["date"])
+            if date_str != current_date:
+                st.markdown(f"#### {date_str}")
+                current_date = date_str
+                
+            if event["type"] == "assessment":
+                a = event["data"]
+                with st.expander(f"🤖 Assessment - {a.get('top_prediction')} ({a.get('confidence', 0)*100:.1f}%)"):
+                    st.markdown(f"**Agentic Decision:** {a.get('agent_decision')}")
+                    
+                    a_id = a.get("id")
+                    a_risk = [f for f in risk_flags if f.get("assessment_id") == a_id]
+                    a_meds = [m for m in med_alerts if m.get("assessment_id") == a_id]
+                    a_briefing = next((b for b in briefings if b.get("assessment_id") == a_id), None)
+                    
+                    if a_risk:
+                        st.markdown("**Risk Flags:**")
+                        for f in a_risk:
+                            st.markdown(f"- {f.get('risk_message')}")
+                            
+                    if a_meds:
+                        st.markdown("**Medication Alerts:**")
+                        for m in a_meds:
+                            st.markdown(f"- {m.get('medication_1')} & {m.get('medication_2')}: {m.get('severity')}")
+                            
+                    if a_briefing:
+                        st.markdown("**Doctor Briefing:**")
+                        st.markdown(a_briefing.get("summary"))
+                        
+            elif event["type"] == "observation":
+                o = event["data"]
+                with st.container(border=True):
+                    st.markdown(f"🩺 **Vital Observation** ({o.get('source', 'UNKNOWN')})")
+                    st.markdown(f"HR: {o.get('heart_rate', '-')} | SpO₂: {o.get('spo2', '-')} | Temp: {o.get('temperature', '-')} | BP: {o.get('systolic_bp', '-')}/{o.get('diastolic_bp', '-')}")
+
+    st.stop()
+
+
+# ============================================================
+# FHIR / EHR / SUPABASE INTEGRATION
 # ============================================================
 
 st.subheader("FHIR / EHR Integration")
 
-# Initialize FHIR patient from session state
-fhir_patient = st.session_state.get("fhir_patient", None)
+def handle_patient_change():
+    if "current_assessment" in st.session_state:
+        del st.session_state["current_assessment"]
+    if "saved_assessment_hash" in st.session_state:
+        del st.session_state["saved_assessment_hash"]
+    if "fhir_patient" in st.session_state:
+        del st.session_state["fhir_patient"]
+    # Clear manual assessment form data
+    for key in ["patient_id", "patient_name", "age", "sex", "symptoms_input", "temperature", "heart_rate", "systolic_bp", "diastolic_bp", "spo2", "medical_history", "current_medications"]:
+        if key in st.session_state:
+            del st.session_state[key]
 
-# Load FHIR patient
-if st.button("Load FHIR Patient", use_container_width=True):
+patient_mode = st.radio(
+    "Patient Workflow",
+    ["Existing Patient (FHIR/EHR)", "Register New Patient"],
+    horizontal=True,
+    on_change=handle_patient_change,
+    key="patient_workflow"
+)
+
+st.write("")
+
+if patient_mode == "Existing Patient (FHIR/EHR)":
+
+    # ------------------------------------------------------------
+    # Initialize loaded patient
+    # ------------------------------------------------------------
+
+    fhir_patient = st.session_state.get(
+        "fhir_patient",
+        None
+    )
+
+
+    # ------------------------------------------------------------
+    # Load patients from Supabase
+    # ------------------------------------------------------------
 
     try:
-        fhir_patient = load_fhir_patient()
 
-        # Save patient profile in session state
-        st.session_state["fhir_patient"] = fhir_patient
+        available_patients = get_patients()
 
-        st.success(
-            f"FHIR patient {fhir_patient['patient_id']} loaded successfully."
-        )
+        if available_patients:
+
+            patient_options = {
+                f"{patient['patient_id']} - {patient['name']}":
+                    patient["patient_id"]
+
+                for patient in available_patients
+            }
+
+
+            col_sel, col_btn = st.columns([3, 1])
+
+
+            with col_sel:
+
+                selected_option = st.selectbox(
+                    "Select or Search Patient",
+                    options=list(
+                        patient_options.keys()
+                    ),
+                    key="patient_selector",
+                    on_change=handle_patient_change
+                )
+
+
+            with col_btn:
+
+                st.write("")
+                st.write("")
+
+                load_clicked = st.button(
+                    "Load FHIR Patient"
+                )
+
+
+            # ----------------------------------------------------
+            # Load selected patient
+            # ----------------------------------------------------
+
+            if load_clicked:
+
+                selected_id = patient_options[
+                    selected_option
+                ]
+
+                # PATIENT SWITCHING: Clear old current assessment if patient changed
+                old_patient_id = st.session_state.get("selected_patient_id")
+                if old_patient_id != selected_id:
+                    for key in ["current_assessment", "saved_assessment_hash"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+
+                loaded_patient = (
+                    get_patient_profile(
+                        selected_id
+                    )
+                )
+
+
+                if loaded_patient:
+
+                    st.session_state["fhir_patient"] = loaded_patient
+                    st.session_state["selected_patient_id"] = selected_id
+                    st.session_state["selected_patient_uuid"] = loaded_patient.get("patient_uuid")
+                    
+                    # Ensure manual form is synchronized
+                    st.session_state["patient_id"] = selected_id
+                    st.session_state["patient_name"] = loaded_patient.get("patient_name")
+                    st.session_state["age"] = loaded_patient.get("age")
+                    st.session_state["sex"] = loaded_patient.get("gender")
+
+                    st.success(
+                        f"FHIR/EHR patient "
+                        f"{selected_id} loaded successfully."
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.error(
+                        f"Patient {selected_id} "
+                        "was not found."
+                    )
+
+
+        else:
+
+            st.warning(
+                "No patients found in Supabase."
+            )
+
 
     except Exception as e:
-        st.error(f"Unable to load FHIR patient: {e}")
 
-# Get latest FHIR patient after button click
-fhir_patient = st.session_state.get("fhir_patient", None)
-
-# Display loaded patient information
-if fhir_patient:
-
-    st.info("Patient information loaded from local FHIR/EHR record.")
-
-    # Patient information
-    fhir_patient_id = fhir_patient.get("patient_id", "")
-    fhir_age = fhir_patient.get("age", "")
-    fhir_gender = fhir_patient.get("gender", "")
-
-    # Medical history
-    fhir_history = ", ".join(
-        fhir_patient.get("medical_history", [])
-    )
-
-    # Vitals
-    fhir_vitals = fhir_patient.get("vitals", {})
-
-    fhir_temperature = fhir_vitals.get("temperature", "")
-    fhir_heart_rate = fhir_vitals.get("heart_rate", "")
-    fhir_systolic = fhir_vitals.get("systolic_bp", "")
-    fhir_diastolic = fhir_vitals.get("diastolic_bp", "")
-    fhir_spo2 = fhir_vitals.get("spo2", "")
-
-    # Medications
-    fhir_medications = ", ".join(
-        fhir_patient.get("medications", [])
-    )
+        st.error(
+            f"Unable to load patient database: {e}"
+        )
 
 else:
+    st.markdown("### 📝 Register New Patient")
+    # Calculate age automatically if DOB is selected
+    # We remove st.form so that Streamlit can re-run and calculate age immediately when DOB changes
+    
+    reg_name = st.text_input("Patient Name", placeholder="e.g., Suresh Kumar")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        reg_dob = st.date_input("Date of Birth", value=datetime.date(1990, 1, 1), min_value=datetime.date(1990, 1, 1), max_value=datetime.date(2027, 12, 31))
+    
+    # Auto-calculate age
+    today = datetime.date.today()
+    calculated_age = today.year - reg_dob.year - ((today.month, today.day) < (reg_dob.month, reg_dob.day))
+    
+    with col2:
+        reg_age = st.number_input("Age (Auto-calculated)", min_value=0, max_value=120, step=1, value=calculated_age, disabled=True)
+        
+    with col3:
+        reg_sex = st.selectbox("Sex", ["Male", "Female", "Other"])
+    
+    reg_history = st.text_area("Medical History (comma separated)", placeholder="e.g., Asthma, Hypertension")
+    reg_meds = st.text_area("Current Medications (comma separated)", placeholder="e.g., Albuterol, Lisinopril")
+    
+    submitted = st.button("Register Patient", type="primary")
+    
+    if submitted:
+        if not reg_name.strip():
+            st.error("Patient Name is required.")
+        else:
+            try:
+                from supabase_client import register_patient, get_patient_profile
+                new_id = register_patient(
+                    name=reg_name.strip(),
+                    age=reg_age,
+                    gender=reg_sex,
+                    dob=str(reg_dob) if reg_dob else None,
+                    medical_history=reg_history,
+                    medications=reg_meds
+                )
+                
+                # Clear old current assessment if patient changed
+                old_patient_id = st.session_state.get("selected_patient_id")
+                if old_patient_id != new_id:
+                    for key in ["current_assessment", "saved_assessment_hash"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                            
+                st.success(f"Patient registered successfully! Generated ID: {new_id}")
+                loaded_patient = get_patient_profile(new_id)
+                if loaded_patient:
+                    st.session_state["fhir_patient"] = loaded_patient
+                    st.session_state["selected_patient_id"] = new_id
+                    st.session_state["selected_patient_uuid"] = loaded_patient.get("patient_uuid")
+            except Exception as e:
+                st.error(f"Failed to register patient: {e}")
+                if "row-level security" in str(e).lower():
+                    st.error("🔒 SUPABASE RLS ERROR: You need to enable INSERT access for the 'patients', 'conditions', and 'medications' tables in your Supabase Dashboard!")
 
-    fhir_patient_id = ""
-    fhir_age = ""
-    fhir_gender = ""
-    fhir_history = ""
 
-    fhir_temperature = ""
-    fhir_heart_rate = ""
-    fhir_systolic = ""
-    fhir_diastolic = ""
-    fhir_spo2 = ""
 
-    fhir_medications = ""
+# ------------------------------------------------------------
+# Get loaded patient
+# ------------------------------------------------------------
+
+fhir_patient = st.session_state.get(
+    "fhir_patient",
+    None
+)
+
+
+# ============================================================
+# DISPLAY LOADED PATIENT
+# ============================================================
+
+if fhir_patient:
+
+    st.info(
+        "Patient information loaded from "
+        "FHIR/EHR data stored in Supabase."
+    )
+
+
+    vitals = fhir_patient.get(
+        "vitals",
+        {}
+    )
+
+
+    st.markdown(
+        f"""
+        <div style="
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(128,128,128,0.1);
+            border: 1px solid rgba(128,128,128,0.3);
+            margin-bottom: 20px;
+        ">
+
+        <h4 style="margin-top: 0;">
+            🏥 FHIR / EHR Patient Loaded
+        </h4>
+
+        <b>Patient ID:</b>
+        {fhir_patient.get('patient_id', 'N/A')}
+        &nbsp;|&nbsp;
+
+        <b>Name:</b>
+        {fhir_patient.get('patient_name', 'N/A')}
+        &nbsp;|&nbsp;
+
+        <b>Age:</b>
+        {fhir_patient.get('age', 'N/A')}
+        &nbsp;|&nbsp;
+
+        <b>Sex:</b>
+        {str(fhir_patient.get('gender', 'N/A')).title()}
+
+        <br><br>
+
+        <b>Medical History:</b>
+        {", ".join(
+            fhir_patient.get(
+                'medical_history',
+                []
+            )
+        ) or 'None'}
+
+        <br><br>
+
+        <b>Symptoms:</b>
+        {", ".join(
+            fhir_patient.get(
+                'symptoms',
+                []
+            )
+        ) or 'None'}
+
+        <br><br>
+
+        <b>Vitals:</b>
+        Temp {vitals.get('temperature', 'N/A')} °C,
+        HR {vitals.get('heart_rate', 'N/A')} bpm,
+        BP {vitals.get('systolic_bp', 'N/A')}/
+        {vitals.get('diastolic_bp', 'N/A')} mmHg,
+        SpO₂ {vitals.get('spo2', 'N/A')}%
+
+        <br><br>
+
+        <b>Medications:</b>
+        {", ".join(
+            fhir_patient.get(
+                'medications',
+                []
+            )
+        ) or 'None'}
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # ========================================================
+    # EXPLICITLY USE FHIR DATA FOR ASSESSMENT
+    # ========================================================
+
+    if st.button(
+        "Use FHIR Data for Assessment"
+    ):
+
+        # Patient information
+
+        st.session_state[
+            "patient_id"
+        ] = fhir_patient.get(
+            "patient_id"
+        )
+
+
+        st.session_state[
+            "patient_name"
+        ] = fhir_patient.get(
+            "patient_name"
+        )
+
+
+        age = fhir_patient.get(
+            "age"
+        )
+
+        st.session_state[
+            "age"
+        ] = (
+            int(age)
+            if age is not None
+            else None
+        )
+
+
+        gender = str(
+            fhir_patient.get(
+                "gender",
+                ""
+            )
+        ).capitalize()
+
+
+        st.session_state[
+            "sex"
+        ] = (
+            gender
+            if gender in [
+                "Male",
+                "Female",
+                "Other"
+            ]
+            else "Select sex"
+        )
+
+
+        # ----------------------------------------------------
+        # Symptoms
+        # ----------------------------------------------------
+
+        symptoms = fhir_patient.get(
+            "symptoms",
+            []
+        )
+
+        st.session_state[
+            "symptoms_input"
+        ] = ", ".join(
+            symptoms
+        )
+
+
+        # ----------------------------------------------------
+        # Vitals
+        # ----------------------------------------------------
+
+        vitals = fhir_patient.get(
+            "vitals",
+            {}
+        )
+
+
+        temperature = vitals.get(
+            "temperature"
+        )
+
+        st.session_state[
+            "temperature"
+        ] = (
+            float(temperature)
+            if temperature is not None
+            else None
+        )
+
+
+        heart_rate = vitals.get(
+            "heart_rate"
+        )
+
+        st.session_state[
+            "heart_rate"
+        ] = (
+            int(heart_rate)
+            if heart_rate is not None
+            else None
+        )
+
+
+        systolic = vitals.get(
+            "systolic_bp"
+        )
+
+        st.session_state[
+            "systolic_bp"
+        ] = (
+            int(systolic)
+            if systolic is not None
+            else None
+        )
+
+
+        diastolic = vitals.get(
+            "diastolic_bp"
+        )
+
+        st.session_state[
+            "diastolic_bp"
+        ] = (
+            int(diastolic)
+            if diastolic is not None
+            else None
+        )
+
+
+        spo2 = vitals.get(
+            "spo2"
+        )
+
+        st.session_state[
+            "spo2"
+        ] = (
+            float(spo2)
+            if spo2 is not None
+            else None
+        )
+
+
+        # ----------------------------------------------------
+        # Medical history
+        # ----------------------------------------------------
+
+        history = fhir_patient.get(
+            "medical_history",
+            []
+        )
+
+        st.session_state[
+            "medical_history"
+        ] = ", ".join(
+            history
+        )
+
+
+        # ----------------------------------------------------
+        # Medications
+        # ----------------------------------------------------
+
+        medications = fhir_patient.get(
+            "medications",
+            []
+        )
+
+        st.session_state[
+            "current_medications"
+        ] = ", ".join(
+            medications
+        )
+
+
+        st.rerun()
+
 # ============================================================
 # PATIENT ASSESSMENT
 # ============================================================
@@ -470,29 +1148,41 @@ st.markdown(
 )
 
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
 
     patient_id = st.text_input(
         "Patient ID",
-        placeholder="P001"
+        key="patient_id",
+        placeholder="e.g., P001"
     )
 
 with col2:
+
+    patient_name = st.text_input(
+        "Patient Name",
+        key="patient_name",
+        placeholder="e.g., John Doe"
+    )
+
+with col3:
 
     age = st.number_input(
         "Age",
         min_value=0,
         max_value=120,
-        value=25
+        key="age",
+        placeholder="e.g., 25"
     )
 
-with col3:
+with col4:
 
+    sex_options = ["Select sex", "Male", "Female", "Other"]
     sex = st.selectbox(
         "Sex",
-        ["Male", "Female", "Other"]
+        sex_options,
+        key="sex"
     )
 
 
@@ -504,7 +1194,8 @@ st.markdown("### 🩺 Symptoms")
 
 symptoms_input = st.text_area(
     "Enter symptoms separated by commas",
-    placeholder="fatigue, vomiting, headache",
+    key="symptoms_input",
+    placeholder="e.g., fatigue, vomiting, headache",
     height=100
 )
 
@@ -523,8 +1214,9 @@ with col1:
         "Temperature (°C)",
         min_value=25.0,
         max_value=45.0,
-        value=37.0,
-        step=0.1
+        key="temperature",
+        step=0.1,
+        placeholder="e.g., 37.0"
     )
 
 with col2:
@@ -533,7 +1225,8 @@ with col2:
         "Heart Rate (bpm)",
         min_value=20,
         max_value=250,
-        value=80
+        key="heart_rate",
+        placeholder="e.g., 80"
     )
 
 with col3:
@@ -542,7 +1235,8 @@ with col3:
         "Systolic BP",
         min_value=50,
         max_value=250,
-        value=120
+        key="systolic_bp",
+        placeholder="e.g., 120"
     )
 
 with col4:
@@ -551,16 +1245,18 @@ with col4:
         "Diastolic BP",
         min_value=30,
         max_value=150,
-        value=80
+        key="diastolic_bp",
+        placeholder="e.g., 80"
     )
 
 
-spo2 = st.slider(
+spo2 = st.number_input(
     "SpO₂ (%)",
     min_value=0.0,
     max_value=100.0,
-    value=98.0,
-    step=0.5
+    key="spo2",
+    step=0.5,
+    placeholder="e.g., 98"
 )
 
 
@@ -576,7 +1272,8 @@ with col1:
 
     medical_history = st.text_area(
         "Known medical conditions",
-        placeholder="diabetes, hypertension, none",
+        key="medical_history",
+        placeholder="e.g., Hypertension, Diabetes",
         height=100
     )
 
@@ -586,7 +1283,8 @@ with col2:
 
     medications_input = st.text_area(
         "Enter medications separated by commas",
-        placeholder="aspirin, warfarin",
+        key="current_medications",
+        placeholder="e.g., Aspirin, Metformin",
         height=100
     )
 
@@ -600,7 +1298,6 @@ st.divider()
 
 assess = st.button(
     "🔍  ASSESS PATIENT",
-    use_container_width=True,
     type="primary"
 )
 
@@ -987,6 +1684,71 @@ if assess:
 
 
     # ========================================================
+    # SAVE TO SESSION STATE
+    # ========================================================
+
+    st.session_state["current_assessment"] = {
+        "patient_id": patient_id,
+        "patient_name": patient_name,
+        "age": age,
+        "sex": sex,
+        "valid_symptoms": valid_symptoms,
+        "temperature": temperature,
+        "heart_rate": heart_rate,
+        "systolic_bp": systolic,
+        "diastolic_bp": diastolic,
+        "spo2": spo2,
+        "medical_history": medical_history,
+        "medication_list": medication_list,
+        "predicted_disease": predicted_disease,
+        "top_probability": top_probability,
+        "confidence_level": confidence_level,
+        "top_indices": top_indices,
+        "probabilities": probabilities,
+        "label_encoder": label_encoder,
+        "risk_flags": risk_flags,
+        "medication_alerts": medication_alerts,
+        "red_flags": red_flags,
+        "information_status": information_status,
+        "agent_decision": agent_decision,
+        "decision_reason": decision_reason,
+        "retrieved_information": retrieved_information
+    }
+
+# ============================================================
+# RENDER ASSESSMENT RESULTS
+# ============================================================
+
+if "current_assessment" in st.session_state and st.session_state["current_assessment"]["patient_id"] == patient_id:
+
+    ca = st.session_state["current_assessment"]
+    patient_id = ca["patient_id"]
+    patient_name = ca["patient_name"]
+    age = ca["age"]
+    sex = ca["sex"]
+    valid_symptoms = ca["valid_symptoms"]
+    temperature = ca["temperature"]
+    heart_rate = ca["heart_rate"]
+    systolic = ca["systolic_bp"]
+    diastolic = ca["diastolic_bp"]
+    spo2 = ca["spo2"]
+    medical_history = ca["medical_history"]
+    medication_list = ca["medication_list"]
+    predicted_disease = ca["predicted_disease"]
+    top_probability = ca["top_probability"]
+    confidence_level = ca["confidence_level"]
+    top_indices = ca["top_indices"]
+    probabilities = ca["probabilities"]
+    label_encoder = ca["label_encoder"]
+    risk_flags = ca["risk_flags"]
+    medication_alerts = ca["medication_alerts"]
+    red_flags = ca["red_flags"]
+    information_status = ca["information_status"]
+    agent_decision = ca["agent_decision"]
+    decision_reason = ca["decision_reason"]
+    retrieved_information = ca["retrieved_information"]
+
+    # ========================================================
     # RESULTS
     # ========================================================
 
@@ -1159,7 +1921,6 @@ if assess:
 
     st.dataframe(
         pd.DataFrame(prediction_data),
-        use_container_width=True,
         hide_index=True
     )
 
@@ -1331,199 +2092,162 @@ if assess:
     # DOCTOR BRIEFING
     # ========================================================
 
-    st.markdown(
-        "### 👨‍⚕️ Doctor Briefing"
-    )
+    st.markdown("### 👨‍⚕️ Doctor Briefing")
 
+    st.info("🤖 **Agentic Orchestration Complete:** The Agentic AI has coordinated data from the Patient Context, ML Analysis, Risk Engine, Medication Checker, and Medical Knowledge modules to generate this clinical decision support briefing.")
+
+    briefing_text = ""
+    briefing_text += f"**Patient ID:** {patient_id if patient_id else 'N/A'}  \n"
+    briefing_text += f"**Patient Name:** {patient_name if patient_name else 'N/A'}  \n"
+    briefing_text += f"**Age:** {age if age is not None else 'N/A'}  \n"
+    briefing_text += f"**Sex:** {sex if sex != 'Select sex' else 'N/A'}\n\n"
+
+    briefing_text += "#### Reported Symptoms\n"
+    for symptom in valid_symptoms:
+        briefing_text += f"• {symptom.replace('_', ' ')}\n"
+
+    briefing_text += "\n#### Vital Signs\n"
+    briefing_text += f"• Temperature: {temperature if temperature is not None else 'N/A'} °C\n"
+    briefing_text += f"• Heart Rate: {heart_rate if heart_rate is not None else 'N/A'} bpm\n"
+    briefing_text += f"• Blood Pressure: {systolic if systolic is not None else 'N/A'}/{diastolic if diastolic is not None else 'N/A'} mmHg\n"
+    briefing_text += f"• SpO₂: {spo2 if spo2 is not None else 'N/A'}%\n\n"
+
+    briefing_text += "#### Medical History\n"
+    if medical_history.strip():
+        briefing_text += f"{medical_history}\n\n"
+    else:
+        briefing_text += "None reported\n\n"
+
+    briefing_text += "#### ML Candidate Assessment\n"
+    for rank, index in enumerate(top_indices, start=1):
+        disease = label_encoder.inverse_transform([index])[0]
+        prob = probabilities[index] * 100
+        briefing_text += f"{rank}. {disease} ({prob:.2f}%)\n"
+
+    briefing_text += "\n#### Vital-Risk Findings\n"
+    if risk_flags:
+        for flag in risk_flags:
+            briefing_text += f"⚠ {flag}\n"
+    else:
+        briefing_text += "No basic vital-sign risk flags detected.\n"
+
+    briefing_text += "\n#### Medication Safety\n"
+    if medication_alerts:
+        for alert in medication_alerts:
+            briefing_text += f"⚠ {alert['medication_1'].title()} + {alert['medication_2'].title()}\n"
+            briefing_text += f"Severity: {alert['severity']}\n"
+            briefing_text += f"Concern: {alert['message']}\n"
+            briefing_text += f"Action: {alert['action']}\n\n"
+    elif medication_list:
+        briefing_text += "No interactions found in the current knowledge base.\n"
+    else:
+        briefing_text += "No current medications reported.\n"
+
+    briefing_text += "\n#### Red-Flag Findings\n"
+    if red_flags:
+        for flag in red_flags:
+            briefing_text += f"⚠ {flag}\n"
+    else:
+        briefing_text += "No configured red-flag symptoms reported.\n"
+
+    briefing_text += f"\n#### Information Status\n{information_status}\n"
+
+    briefing_text += "\n#### Agentic Recommendation\n"
+    briefing_text += f"**{agent_decision}**\n\n{decision_reason}\n"
 
     with st.container(border=True):
-
-        st.markdown(
-            f"**Patient:** {patient_id}  \n"
-            f"**Age:** {age}  \n"
-            f"**Sex:** {sex}"
-        )
-
-
-        st.markdown("#### Reported Symptoms")
-
-        for symptom in valid_symptoms:
-
-            st.write(
-                f"• {symptom.replace('_', ' ')}"
-            )
-
-
-        st.markdown("#### Vital Signs")
-
-        st.write(
-            f"• Temperature: {temperature} °C"
-        )
-
-        st.write(
-            f"• Heart Rate: {heart_rate} bpm"
-        )
-
-        st.write(
-            f"• Blood Pressure: "
-            f"{systolic}/{diastolic} mmHg"
-        )
-
-        st.write(
-            f"• SpO₂: {spo2}%"
-        )
-
-
-        st.markdown("#### Medical History")
-
-        if medical_history.strip():
-
-            st.write(
-                medical_history
-            )
-
-        else:
-
-            st.write(
-                "None reported"
-            )
-
-
-        st.markdown(
-            "#### ML Candidate Assessment"
-        )
-
-        for rank, index in enumerate(
-            top_indices,
-            start=1
-        ):
-
-            disease = (
-                label_encoder.inverse_transform(
-                    [index]
-                )[0]
-            )
-
-            probability = (
-                probabilities[index] * 100
-            )
-
-            st.write(
-                f"{rank}. {disease} "
-                f"({probability:.2f}%)"
-            )
-
-
-        st.markdown(
-            "#### Vital-Risk Findings"
-        )
-
-        if risk_flags:
-
-            for flag in risk_flags:
-
-                st.write(
-                    f"⚠ {flag}"
-                )
-
-        else:
-
-            st.write(
-                "No basic vital-sign risk flags detected."
-            )
-
-
-        st.markdown(
-            "#### Medication Safety"
-        )
-
-        if medication_alerts:
-
-            for alert in medication_alerts:
-
-                st.write(
-                    f"⚠ {alert['medication_1'].title()} + "
-                    f"{alert['medication_2'].title()}"
-                )
-
-                st.write(
-                    f"Severity: {alert['severity']}"
-                )
-
-                st.write(
-                    f"Concern: {alert['message']}"
-                )
-
-                st.write(
-                    f"Action: {alert['action']}"
-                )
-
-        elif medication_list:
-
-            st.write(
-                "No interactions found in the "
-                "current knowledge base."
-            )
-
-        else:
-
-            st.write(
-                "No current medications reported."
-            )
-
-
-        st.markdown(
-            "#### Red-Flag Findings"
-        )
-
-        if red_flags:
-
-            for flag in red_flags:
-
-                st.write(
-                    f"⚠ {flag}"
-                )
-
-        else:
-
-            st.write(
-                "No configured red-flag symptoms reported."
-            )
-
-
-        st.markdown(
-            "#### Information Status"
-        )
-
-        st.write(
-            information_status
-        )
-
-
-        st.markdown(
-            "#### Agentic Recommendation"
-        )
-
-        st.write(
-            f"**{agent_decision}**"
-        )
-
-        st.write(
-            decision_reason
-        )
-
+        st.markdown(briefing_text)
 
     # ========================================================
-    # SAFETY
+    # SAVE ASSESSMENT
     # ========================================================
 
     st.divider()
+    
+    col_save, _ = st.columns([1, 3])
+    with col_save:
+        # Generate a unique hash for this assessment based on patient inputs and ML results
+        current_assessment_hash = hash(f"{patient_id}{predicted_disease}{top_probability}{agent_decision}")
+        
+        if st.button("💾 Save Assessment", use_container_width=True):
+            if st.session_state["current_assessment"]["patient_id"] != patient_id:
+                st.error("Assessment patient mismatch. Please reassess the selected patient.")
+            elif st.session_state.get("saved_assessment_hash") == current_assessment_hash:
+                st.info("This assessment has already been saved.")
+            else:
+                try:
+                    # Save to Supabase
+                    save_assessment(
+                        patient_id=patient_id,
+                        top_prediction=predicted_disease,
+                        confidence=float(top_probability),
+                        confidence_level=confidence_level,
+                        agent_decision=agent_decision,
+                        agent_reason=decision_reason,
+                        risk_flags=risk_flags,
+                        medication_alerts=medication_alerts,
+                        briefing_summary=briefing_text,
+                        temperature=temperature,
+                        heart_rate=heart_rate,
+                        systolic_bp=systolic,
+                        diastolic_bp=diastolic,
+                        spo2=spo2
+                    )
+                    
+                    st.session_state["saved_assessment_hash"] = current_assessment_hash
+                    st.success("Assessment saved successfully to Supabase!")
+                except ValueError as ve:
+                    st.error(str(ve))
+                except Exception as e:
+                    st.error("Failed to save assessment.")
+                    if "row-level security" in str(e).lower() and "observations" in str(e).lower():
+                        st.error("🔒 SUPABASE RLS ERROR: You need to enable INSERT access for the 'observations' table in your Supabase Dashboard!")
+                    with st.expander("Technical error details"):
+                        st.code(str(e))
 
-    st.warning(
-        "⚠️ **Important:** This is a decision-support "
-        "prototype. ML probabilities are dataset-level "
-        "outputs and are not clinical diagnostic probabilities. "
-        "Medication alerts are screening results requiring "
-        "professional verification. The system does not replace "
-        "evaluation by a qualified healthcare professional."
-    )
+# ========================================================
+# ASSESSMENT HISTORY
+# ========================================================
+
+st.markdown("### 📜 Assessment History")
+
+history_patient_uuid = st.session_state.get("selected_patient_uuid")
+
+if history_patient_uuid:
+    try:
+        history = get_assessment_history_by_uuid(history_patient_uuid)
+        
+        if history:
+            for past_assessment in history:
+                # Format date
+                created_at_str = past_assessment.get("created_at", "")
+                date_display = created_at_str.split("T")[0] if "T" in created_at_str else created_at_str
+                
+                with st.expander(f"Assessment on {date_display} - ML: {past_assessment.get('top_prediction')}"):
+                    st.markdown(f"**Date:** {created_at_str}")
+                    st.markdown(f"**Top ML Candidate:** {past_assessment.get('top_prediction')}")
+                    st.markdown(f"**Confidence:** {past_assessment.get('confidence', 0)*100:.2f}% ({past_assessment.get('confidence_level')})")
+                    st.markdown(f"**Agentic Decision:** {past_assessment.get('agent_decision')}")
+                    st.markdown(f"**Agent Reason:** {past_assessment.get('agent_reason')}")
+        else:
+            st.info("No previous assessments found for this patient.")
+            
+    except Exception as e:
+        st.error(f"Could not load history: {e}")
+else:
+    st.warning("Please enter or load a Patient ID to view their assessment history.")
+
+# ========================================================
+# SAFETY
+# ========================================================
+
+st.divider()
+
+st.warning(
+    "⚠️ **Important:** This is a decision-support "
+    "prototype. ML probabilities are dataset-level "
+    "outputs and are not clinical diagnostic probabilities. "
+    "Medication alerts are screening results requiring "
+    "professional verification. The system does not replace "
+    "evaluation by a qualified healthcare professional."
+)

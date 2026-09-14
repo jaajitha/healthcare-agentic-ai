@@ -1,114 +1,310 @@
-{
-    "resourceType": "Bundle",
-    "type": "collection",
-    "entry": [
-        {
-            "resource": {
-                "resourceType": "Patient",
-                "id": "P003",
-                "gender": "male",
-                "birthDate": "2002-05-15"
-            }
-        },
-        {
-            "resource": {
-                "resourceType": "Condition",
-                "id": "condition-001",
-                "code": {
-                    "text": "Hypertension"
-                },
-                "clinicalStatus": {
-                    "text": "active"
+[
+    {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "P001",
+                    "name": [{"use": "official", "family": "Johnson", "given": ["Alice"]}],
+                    "gender": "female",
+                    "birthDate": "1999-03-22"
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Condition",
+                    "id": "condition-p001",
+                    "code": {"text": "Diabetes"},
+                    "clinicalStatus": {"text": "active"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Body Temperature"},
+                    "valueQuantity": {"value": 36.8, "unit": "°C"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Heart Rate"},
+                    "valueQuantity": {"value": 75, "unit": "beats/min"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Blood Pressure"},
+                    "component": [
+                        {"code": {"text": "Systolic Blood Pressure"}, "valueQuantity": {"value": 118, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic Blood Pressure"}, "valueQuantity": {"value": 78, "unit": "mmHg"}}
+                    ]
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Oxygen Saturation"},
+                    "valueQuantity": {"value": 98, "unit": "%"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Metformin"}
                 }
             }
-        },
-        {
-            "resource": {
-                "resourceType": "Observation",
-                "id": "obs-temp",
-                "code": {
-                    "text": "Body Temperature"
-                },
-                "valueQuantity": {
-                    "value": 37.2,
-                    "unit": "°C"
+        ]
+    },
+    {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "P002",
+                    "name": [{"use": "official", "family": "Kumar", "given": ["Ravi"]}],
+                    "gender": "male",
+                    "birthDate": "1979-11-10"
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Condition",
+                    "code": {"text": "Hypertension"},
+                    "clinicalStatus": {"text": "active"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Body Temperature"},
+                    "valueQuantity": {"value": 37.0, "unit": "°C"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Heart Rate"},
+                    "valueQuantity": {"value": 85, "unit": "beats/min"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Blood Pressure"},
+                    "component": [
+                        {"code": {"text": "Systolic Blood Pressure"}, "valueQuantity": {"value": 142, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic Blood Pressure"}, "valueQuantity": {"value": 92, "unit": "mmHg"}}
+                    ]
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Oxygen Saturation"},
+                    "valueQuantity": {"value": 97, "unit": "%"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Losartan"}
                 }
             }
-        },
-        {
-            "resource": {
-                "resourceType": "Observation",
-                "id": "obs-hr",
-                "code": {
-                    "text": "Heart Rate"
-                },
-                "valueQuantity": {
-                    "value": 82,
-                    "unit": "beats/min"
+        ]
+    },
+    {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "P003",
+                    "name": [{"use": "official", "family": "Sharma", "given": ["Rahul"]}],
+                    "gender": "male",
+                    "birthDate": "2002-05-15"
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Condition",
+                    "code": {"text": "Hypertension"},
+                    "clinicalStatus": {"text": "active"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Body Temperature"},
+                    "valueQuantity": {"value": 37.2, "unit": "°C"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Heart Rate"},
+                    "valueQuantity": {"value": 82, "unit": "beats/min"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Blood Pressure"},
+                    "component": [
+                        {"code": {"text": "Systolic Blood Pressure"}, "valueQuantity": {"value": 138, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic Blood Pressure"}, "valueQuantity": {"value": 88, "unit": "mmHg"}}
+                    ]
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Oxygen Saturation"},
+                    "valueQuantity": {"value": 96, "unit": "%"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Aspirin"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Amlodipine"}
                 }
             }
-        },
-        {
-            "resource": {
-                "resourceType": "Observation",
-                "id": "obs-bp",
-                "code": {
-                    "text": "Blood Pressure"
-                },
-                "component": [
-                    {
-                        "code": {
-                            "text": "Systolic Blood Pressure"
-                        },
-                        "valueQuantity": {
-                            "value": 138,
-                            "unit": "mmHg"
-                        }
-                    },
-                    {
-                        "code": {
-                            "text": "Diastolic Blood Pressure"
-                        },
-                        "valueQuantity": {
-                            "value": 88,
-                            "unit": "mmHg"
-                        }
-                    }
-                ]
-            }
-        },
-        {
-            "resource": {
-                "resourceType": "Observation",
-                "id": "obs-spo2",
-                "code": {
-                    "text": "Oxygen Saturation"
-                },
-                "valueQuantity": {
-                    "value": 96,
-                    "unit": "%"
+        ]
+    },
+    {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "P004",
+                    "name": [{"use": "official", "family": "Singh", "given": ["Priya"]}],
+                    "gender": "female",
+                    "birthDate": "1994-08-05"
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Condition",
+                    "code": {"text": "Asthma"},
+                    "clinicalStatus": {"text": "active"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Body Temperature"},
+                    "valueQuantity": {"value": 36.9, "unit": "°C"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Heart Rate"},
+                    "valueQuantity": {"value": 90, "unit": "beats/min"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Blood Pressure"},
+                    "component": [
+                        {"code": {"text": "Systolic Blood Pressure"}, "valueQuantity": {"value": 115, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic Blood Pressure"}, "valueQuantity": {"value": 75, "unit": "mmHg"}}
+                    ]
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Oxygen Saturation"},
+                    "valueQuantity": {"value": 94, "unit": "%"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Albuterol"}
                 }
             }
-        },
-        {
-            "resource": {
-                "resourceType": "MedicationStatement",
-                "id": "med-001",
-                "status": "active",
-                "medicationCodeableConcept": {
-                    "text": "Aspirin"
+        ]
+    },
+    {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "P005",
+                    "name": [{"use": "official", "family": "Reddy", "given": ["Arjun"]}],
+                    "gender": "male",
+                    "birthDate": "1974-01-30"
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Condition",
+                    "code": {"text": "Hyperlipidemia"},
+                    "clinicalStatus": {"text": "active"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Body Temperature"},
+                    "valueQuantity": {"value": 37.1, "unit": "°C"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Heart Rate"},
+                    "valueQuantity": {"value": 72, "unit": "beats/min"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Blood Pressure"},
+                    "component": [
+                        {"code": {"text": "Systolic Blood Pressure"}, "valueQuantity": {"value": 125, "unit": "mmHg"}},
+                        {"code": {"text": "Diastolic Blood Pressure"}, "valueQuantity": {"value": 82, "unit": "mmHg"}}
+                    ]
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Observation",
+                    "code": {"text": "Oxygen Saturation"},
+                    "valueQuantity": {"value": 99, "unit": "%"}
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "MedicationStatement",
+                    "status": "active",
+                    "medicationCodeableConcept": {"text": "Atorvastatin"}
                 }
             }
-        },
-        {
-            "resource": {
-                "resourceType": "MedicationStatement",
-                "id": "med-002",
-                "status": "active",
-                "medicationCodeableConcept": {
-                    "text": "Amlodipine"
-                }
-            }
-        }
-    ]
-}
+        ]
+    }
+]
