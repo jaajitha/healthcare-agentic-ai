@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 
-from supabase_client import (
+from src.services.supabase_client import (
     get_patient_profile,
     get_patient_observations,
     get_patient_risk_flags,
@@ -11,7 +11,7 @@ from supabase_client import (
     supabase
 )
 
-from fhir.parser import _load_fhir_database
+from src.fhir.parser import _load_fhir_database
 
 # ============================================================
 # PAGE CONFIG

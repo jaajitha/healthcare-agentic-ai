@@ -3,8 +3,8 @@ import os
 
 
 # Find the medical knowledge file
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-KNOWLEDGE_FILE = os.path.join(BASE_DIR, "medical_knowledge.json")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+KNOWLEDGE_FILE = os.path.join(BASE_DIR, "knowledge", "medical_knowledge.json")
 
 
 def load_knowledge():

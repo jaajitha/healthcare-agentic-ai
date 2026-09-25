@@ -25,7 +25,7 @@ def finalize_login(role, email):
     
     if role == "patient":
         try:
-            from supabase_client import get_patient_by_email
+            from src.services.supabase_client import get_patient_by_email
             patient = get_patient_by_email(email)
             if patient:
                 st.session_state["patient_id"] = patient.get("patient_id")
@@ -52,7 +52,7 @@ def finalize_login(role, email):
 
 def do_login(role, username, password):
     try:
-        from supabase_client import sign_in_with_email
+        from src.services.supabase_client import sign_in_with_email
         res = sign_in_with_email(username, password)
         if res and hasattr(res, 'user') and res.user:
             finalize_login(role, res.user.email)
@@ -83,7 +83,7 @@ def do_otp_request(email):
         st.error("Please enter a valid email address.")
         return
     try:
-        from supabase_client import send_otp
+        from src.services.supabase_client import send_otp
         send_otp(email)
         st.session_state["otp_sent_to"] = email
         st.rerun()
@@ -92,7 +92,7 @@ def do_otp_request(email):
 
 def do_otp_verify(role, email, code):
     try:
-        from supabase_client import verify_otp
+        from src.services.supabase_client import verify_otp
         res = verify_otp(email, code)
         if res and hasattr(res, 'user') and res.user:
             finalize_login(role, res.user.email)
@@ -104,7 +104,7 @@ def do_otp_verify(role, email, code):
 def render_google_button():
     if "google_auth_url" not in st.session_state:
         try:
-            from supabase_client import sign_in_with_google
+            from src.services.supabase_client import sign_in_with_google
             res = sign_in_with_google("http://localhost:8501")
             if res and hasattr(res, 'url'):
                 st.session_state["google_auth_url"] = res.url

@@ -40,51 +40,92 @@ This repository contains the source code for a B.Tech CSE Final-Year Project: **
 ## 📂 Project Structure
 
 ```text
-agent_ai/
+healthcare-agentic-ai/
+├── main.py                     # Main application entry point (Routing)
+├── .env                        # Environment variables
+├── requirements.txt            # Project dependencies
+├── README.md                   # Project documentation
 │
-├── app.py                         # Main Streamlit Application and Agentic Orchestrator
+├── src/                        # Main source code directory
+│   ├── pages/                  # Streamlit pages (loaded by main.py)
+│   │   ├── login.py
+│   │   ├── patient_dashboard.py
+│   │   ├── doctor_dashboard.py
+│   │   └── admin_dashboard.py
+│   │
+│   ├── services/               # External API and database clients
+│   │   ├── supabase_client.py
+│   │   └── hospital_client.py
+│   │
+│   ├── agents/                 # Agentic logic and routing
+│   │   ├── hospital_routing_agent.py
+│   │   └── patient_assessment.py
+│   │
+│   ├── ml/                     # Machine Learning pipeline and inference
+│   │   ├── train_model.py
+│   │   ├── predict.py
+│   │   ├── cross_validation.py
+│   │   ├── preprocess_data.py
+│   │   └── eda.py
+│   │
+│   ├── fhir/                   # FHIR parsing logic
+│   │   └── parser.py           
+│   │
+│   └── knowledge/              # Knowledge base scripts and logic
+│       ├── medication_checker.py
+│       └── expand_knowledge.py
 │
-├── fhir/
-│   ├── patient.json               # Mock FHIR R4 standard patient bundle
-│   └── parser.py                  # FHIR parsing and extraction logic
+├── data/                       # Datasets & ML models
+│   ├── processed/              # Trained models & graphs
+│   ├── Testing.csv
+│   └── Training.csv
 │
-├── knowledge/
-│   ├── medical_knowledge.json     # Disease context knowledge base
-│   ├── knowledge_retrieval.py     # Medical context retrieval logic
-│   ├── medication_knowledge.json  # Drug interactions knowledge base
-│   └── medication_checker.py      # Drug safety rules engine
+├── fhir/                       # FHIR payload mocks
+│   └── patient.json
 │
-├── data/                          # Dataset files (Training/Testing)
-├── preprocess_data.py             # Data cleaning & preprocessing pipeline
-├── eda.py                         # Exploratory Data Analysis script
-├── train_model.py                 # Random Forest and XGBoost model training
-├── cross_validation.py            # 5-fold CV evaluation
-├── predict.py                     # Standalone ML inference script
-└── README.md                      # Project documentation
+└── knowledge/                  # Medical & medication JSON rules
+    ├── medical_knowledge.json
+    └── medication_knowledge.json
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Prerequisites & Installation
 
-Ensure you have Python 3.9+ installed. It is recommended to use the provided virtual environment (`.venv`).
+Ensure you have Python 3.9+ installed. Because modern Linux distributions enforce externally managed Python environments (PEP 668), it is highly recommended to use a virtual environment to install dependencies.
 
-Required libraries (can be installed via standard pip requirements):
-- `streamlit`
-- `pandas`
-- `scikit-learn`
-- `xgboost`
-- `matplotlib` / `seaborn` (for EDA)
+1. **Create a virtual environment:**
+   ```bash
+   python -m venv venv
+   ```
+
+2. **Activate the virtual environment:**
+   - On Linux/macOS:
+     ```bash
+     source venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+
+3. **Install the required libraries:**
+   Install the dependencies directly using `pip` inside the activated virtual environment:
+   ```bash
+   pip install streamlit pandas scikit-learn xgboost matplotlib seaborn python-dotenv supabase
+   ```
 
 ### Running the Application
 
-To launch the full Agentic AI Healthcare Assistant UI, run the following command from the project root:
+Once the virtual environment is activated and dependencies are installed, launch the full Agentic AI Healthcare Assistant UI from the project root:
 
 ```bash
-python -m streamlit run app.py
+python -m streamlit run main.py
 ```
+
+*(Note: Ensure your virtual environment is activated every time you want to run the application).*
 
 The application will be accessible in your web browser at `http://localhost:8501`.
 
@@ -106,7 +147,7 @@ You can also test specific safety edges, such as manually adding `warfarin` to a
 
 ## 🏗️ Architecture Overview
 
-The system follows a modular architecture orchestrated by `app.py`:
+The system follows a modular architecture orchestrated by `main.py`:
 
 ```mermaid
 graph TD

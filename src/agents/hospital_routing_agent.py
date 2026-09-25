@@ -1,4 +1,4 @@
-from hospital_client import (
+from src.services.hospital_client import (
     get_hospital,
     get_departments,
     get_doctors,

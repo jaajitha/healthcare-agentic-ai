@@ -7,7 +7,7 @@ import sys
 if "supabase_client" in sys.modules:
     del sys.modules["supabase_client"]
 
-from supabase_client import (
+from src.services.supabase_client import (
     get_patients, 
     get_patient_profile, 
     save_assessment, 
@@ -18,8 +18,8 @@ from supabase_client import (
     get_patient_doctor_briefings
 )
 
-from knowledge.medication_checker import check_medication_interactions
-from hospital_routing_agent import route_patient_to_hospital, format_routing_result
+from src.knowledge.medication_checker import check_medication_interactions
+from src.agents.hospital_routing_agent import route_patient_to_hospital, format_routing_result
 
 # ============================================================
 # PAGE CONFIG
@@ -567,7 +567,7 @@ else:
             st.error("Patient Name is required.")
         else:
             try:
-                from supabase_client import register_patient, get_patient_profile
+                from src.services.supabase_client import register_patient, get_patient_profile
                 new_id = register_patient(
                     name=reg_name.strip(),
                     age=reg_age,

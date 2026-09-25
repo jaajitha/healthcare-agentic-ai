@@ -7,7 +7,7 @@ import sys
 if "supabase_client" in sys.modules:
     del sys.modules["supabase_client"]
 
-from supabase_client import (
+from src.services.supabase_client import (
     get_patients as supabase_get_patients,
     get_patient_profile as supabase_get_patient_profile,
     get_patient_risk_flags,
@@ -19,9 +19,9 @@ from supabase_client import (
     supabase
 )
 
-from hospital_client import get_hospital
-from hospital_routing_agent import format_routing_result
-from fhir.parser import _load_fhir_database
+from src.services.hospital_client import get_hospital
+from src.agents.hospital_routing_agent import format_routing_result
+from src.fhir.parser import _load_fhir_database
 
 # ============================================================
 # PAGE CONFIG

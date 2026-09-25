@@ -31,7 +31,7 @@ if not st.session_state.get("authenticated"):
         
     elif "code" in st.query_params:
         try:
-            from supabase_client import supabase, get_patient_by_email
+            from src.services.supabase_client import supabase, get_patient_by_email
             auth_code = st.query_params["code"]
             res = supabase.auth.exchange_code_for_session({"auth_code": auth_code})
             if res and hasattr(res, 'user') and res.user:
@@ -98,7 +98,7 @@ def logout():
 # Routing Logic
 if not st.session_state["authenticated"]:
     # Render Login Page
-    with open("login.py", "r", encoding="utf-8") as f:
+    with open("src/pages/login.py", "r", encoding="utf-8") as f:
         env = globals().copy()
         env["__name__"] = "__imported__"
         exec(f.read(), env)
@@ -108,20 +108,20 @@ else:
     role = st.session_state["user_role"]
     
     if role == "patient":
-        with open("patient_dashboard.py", "r", encoding="utf-8") as f:
+        with open("src/pages/patient_dashboard.py", "r", encoding="utf-8") as f:
             env = globals().copy()
             # Set name to something other than main so set_page_config is skipped in the imported file
             env["__name__"] = "__imported__" 
             exec(f.read(), env)
             
     elif role == "doctor":
-        with open("doctor_dashboard.py", "r", encoding="utf-8") as f:
+        with open("src/pages/doctor_dashboard.py", "r", encoding="utf-8") as f:
             env = globals().copy()
             env["__name__"] = "__imported__"
             exec(f.read(), env)
             
     elif role == "admin":
-        with open("app.py", "r", encoding="utf-8") as f:
+        with open("src/pages/admin_dashboard.py", "r", encoding="utf-8") as f:
             env = globals().copy()
             env["__name__"] = "__imported__"
             exec(f.read(), env)
