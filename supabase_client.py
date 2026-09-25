@@ -1,21 +1,117 @@
+import streamlit as st
 import os
 from dotenv import load_dotenv
-from supabase import create_client
+from supabase import create_client, ClientOptions
 
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY")
 
+import json
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Supabase credentials are missing from .env")
 
+class FileStorage:
+    """
+    Robust file-based storage to persist the PKCE code_verifier across hard 
+    OAuth redirects, bypassing Streamlit's session wipe issue.
+    """
+    def __init__(self, filepath=".supabase_pkce.json"):
+        self.filepath = filepath
+
+    def get_item(self, key: str) -> str | None:
+        try:
+            if os.path.exists(self.filepath):
+                with open(self.filepath, "r") as f:
+                    data = json.load(f)
+                    return data.get(key)
+        except Exception:
+            pass
+        return None
+
+    def set_item(self, key: str, value: str) -> None:
+        try:
+            data = {}
+            if os.path.exists(self.filepath):
+                with open(self.filepath, "r") as f:
+                    data = json.load(f)
+            data[key] = value
+            with open(self.filepath, "w") as f:
+                json.dump(data, f)
+        except Exception:
+            pass
+
+    def remove_item(self, key: str) -> None:
+        try:
+            if os.path.exists(self.filepath):
+                with open(self.filepath, "r") as f:
+                    data = json.load(f)
+                if key in data:
+                    del data[key]
+                    with open(self.filepath, "w") as f:
+                        json.dump(data, f)
+        except Exception:
+            pass
+
+# Initialize Supabase with robust file storage
 supabase = create_client(
     SUPABASE_URL,
-    SUPABASE_KEY
+    SUPABASE_KEY,
+    options=ClientOptions(storage=FileStorage())
 )
 
+# ============================================================
+# AUTHENTICATION
+# ============================================================
 
+def sign_in_with_email(email, password):
+    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+    return response
+
+def sign_up_with_email(email, password):
+    response = supabase.auth.sign_up({"email": email, "password": password})
+    return response
+
+def sign_in_with_google(redirect_url):
+    # Generates the OAuth URL that the user must click to authenticate via Google
+    response = supabase.auth.sign_in_with_oauth({
+        "provider": "google",
+        "options": {
+            "redirect_to": redirect_url
+        }
+    })
+    return response
+
+def send_otp(email):
+    response = supabase.auth.sign_in_with_otp({"email": email})
+    return response
+
+def verify_otp(email, code):
+    response = supabase.auth.verify_otp({"email": email, "token": code, "type": "email"})
+    return response
+
+def sign_out():
+    supabase.auth.sign_out()
+
+def get_current_session():
+    try:
+        return supabase.auth.get_session()
+    except:
+        return None
+
+def get_patient_by_email(email):
+    # Helper to find a patient by email (assuming 'email' column exists or we match name)
+    # Since we didn't have an email column before, we will try to match a hypothetical 'email' column
+    # or fallback to creating one.
+    try:
+        res = supabase.table("patients").select("*").eq("email", email).execute()
+        if res.data:
+            return res.data[0]
+    except:
+        pass
+    return None
 
 # ============================================================
 # REGISTER NEW PATIENT
@@ -87,6 +183,7 @@ def register_patient(name, age, gender, dob, medical_history, medications):
 # GET ALL PATIENTS
 # ============================================================
 
+@st.cache_data(ttl=10)
 def get_patients():
 
     response = (
@@ -104,6 +201,7 @@ def get_patients():
 # GET COMPLETE PATIENT PROFILE
 # ============================================================
 
+@st.cache_data(ttl=10)
 def get_patient_profile(patient_id):
 
     # --------------------------------------------------------
@@ -394,6 +492,7 @@ def save_assessment(
 # GET PATIENT ASSESSMENT HISTORY
 # ============================================================
 
+@st.cache_data(ttl=10)
 def get_assessment_history_by_uuid(patient_uuid):
     """
     Retrieves the assessment history for a specific patient using their UUID.
@@ -422,6 +521,7 @@ def get_assessment_history_by_uuid(patient_uuid):
 # DOCTOR DASHBOARD: ADDITIONAL DATA FETCHERS
 # ============================================================
 
+@st.cache_data(ttl=10)
 def get_patient_observations(patient_uuid):
     if not patient_uuid:
         return []
@@ -435,6 +535,7 @@ def get_patient_observations(patient_uuid):
     )
     return response.data
 
+@st.cache_data(ttl=10)
 def get_patient_risk_flags(patient_uuid):
     if not patient_uuid:
         return []
@@ -448,6 +549,7 @@ def get_patient_risk_flags(patient_uuid):
     )
     return response.data
 
+@st.cache_data(ttl=10)
 def get_patient_medication_alerts(patient_uuid):
     if not patient_uuid:
         return []
@@ -461,6 +563,7 @@ def get_patient_medication_alerts(patient_uuid):
     )
     return response.data
 
+@st.cache_data(ttl=10)
 def get_patient_doctor_briefings(patient_uuid):
     if not patient_uuid:
         return []
@@ -473,3 +576,56 @@ def get_patient_doctor_briefings(patient_uuid):
         .execute()
     )
     return response.data
+
+# ============================================================
+# HOSPITAL ENCOUNTERS (DERIVED)
+# ============================================================
+
+@st.cache_data(ttl=10)
+def get_today_encounters(today_date_str):
+    # Derive today's patients from assessments and doctor_visits
+    patients_res = supabase.table('patients').select('*').execute()
+    patients = patients_res.data if patients_res.data else []
+    
+    # 1. Assessments created today
+    assess_res = supabase.table('assessments').select('patient_id, created_at').gte('created_at', today_date_str).execute()
+    today_assessments = assess_res.data if assess_res.data else []
+    today_assess_uuids = [a['patient_id'] for a in today_assessments]
+    
+    # 2. Doctor visits today (or follow ups today)
+    visits_res = supabase.table('doctor_visits').select('patient_id, visit_date, follow_up_date').execute()
+    all_visits = visits_res.data if visits_res.data else []
+    
+    encounters = []
+    
+    for p in patients:
+        p_uuid = p['id']
+        p_visits = [v for v in all_visits if v.get('patient_id') == p_uuid]
+        
+        has_visit_today = any(v.get('visit_date') == today_date_str for v in p_visits)
+        has_fup_today = any(v.get('follow_up_date') == today_date_str for v in p_visits)
+        assessed_today = p_uuid in today_assess_uuids
+        
+        if has_visit_today or has_fup_today or assessed_today:
+            # We don't have a real encounter ID, so just use patient UUID as the pseudo-ID
+            status = 'COMPLETED' if has_visit_today else 'WAITING'
+            
+            encounters.append({
+                'id': p_uuid, # Pseudo ID
+                'patient_id': p_uuid,
+                'department': 'Consultation', # General fallback
+                'status': status,
+                'created_at': today_date_str,
+                'patients': {
+                    'patient_id': p.get('patient_id'),
+                    'name': p.get('name'),
+                    'age': p.get('age'),
+                    'gender': p.get('gender')
+                }
+            })
+            
+    return encounters
+
+def update_hospital_encounter_status(encounter_id, status):
+    # Dummy function because we derive status dynamically now
+    return True

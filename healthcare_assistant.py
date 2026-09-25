@@ -3,6 +3,7 @@ import pandas as pd
 import joblib
 
 from knowledge.medication_checker import check_medication_interactions
+from hospital_routing_agent import route_patient_to_hospital
 
 
 # ============================================================
@@ -1073,6 +1074,139 @@ print("\nReason:")
 print(
     decision_reason
 )
+# ============================================================
+# 25. APOLLO ARAGONDA HOSPITAL ROUTING
+# ============================================================
+
+# Use the patient's reported/recognized symptoms as the primary
+# routing input. ML predictions are passed as additional context.
+predicted_conditions = []
+
+for index in top_indices:
+
+    disease = (
+        label_encoder.inverse_transform(
+            [index]
+        )[0]
+    )
+
+    predicted_conditions.append(disease)
+
+
+hospital_routing = route_patient_to_hospital(
+    symptoms=valid_symptoms,
+    predicted_conditions=predicted_conditions,
+    hospital_code="AH-ARAGONDA"
+)
+
+
+print("\n" + "=" * 70)
+print("APOLLO ARAGONDA HOSPITAL ROUTING")
+print("=" * 70)
+
+
+if hospital_routing.get("success"):
+
+    hospital = hospital_routing.get("hospital")
+    speciality = hospital_routing.get("speciality")
+    routing_doctors = hospital_routing.get("doctors", [])
+
+    if hospital:
+
+        print(
+            "\nHospital:",
+            hospital.get("name")
+        )
+
+        print(
+            "Hospital Type:",
+            hospital.get("hospital_type")
+        )
+
+    if speciality:
+
+        print(
+            "\nSuggested Speciality:",
+            speciality
+        )
+
+        if routing_doctors:
+
+            print(
+                "\nRelevant Listed Doctor(s):"
+            )
+
+            for doctor in routing_doctors:
+
+                print(
+                    f" - {doctor.get('name')} "
+                    f"({doctor.get('speciality')})"
+                )
+
+                if doctor.get("experience_years") is not None:
+
+                    print(
+                        f"   Experience: "
+                        f"{doctor.get('experience_years')} years"
+                    )
+
+        else:
+
+            print(
+                "\nRelevant Listed Doctor(s):"
+            )
+
+            print(
+                " - No matching listed doctor found."
+            )
+
+    else:
+
+        print(
+            "\nSuggested Speciality:"
+        )
+
+        print(
+            " - No specific speciality identified "
+            "from the available hospital routing rules."
+        )
+
+    print(
+        "\nRouting Reason:"
+    )
+
+    print(
+        " -",
+        hospital_routing.get(
+            "message",
+            "No routing reason available."
+        )
+    )
+
+else:
+
+    print(
+        "\n[WARNING] Hospital routing could not be completed."
+    )
+
+   
+
+
+print(
+    "\nClinical routing note:"
+)
+
+print(
+    " - Hospital routing is decision support based on "
+    "reported symptoms and available hospital data."
+)
+
+print(
+    " - It does not confirm a diagnosis or replace "
+    "clinical judgement."
+)
+
+
 # ============================================================
 # 25. DOCTOR BRIEFING
 # ============================================================

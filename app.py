@@ -19,7 +19,7 @@ from supabase_client import (
 )
 
 from knowledge.medication_checker import check_medication_interactions
-
+from hospital_routing_agent import route_patient_to_hospital, format_routing_result
 
 # ============================================================
 # PAGE CONFIG
@@ -69,84 +69,19 @@ if "current_medications" not in st.session_state:
 st.markdown("""
 <style>
 
-.block-container {
-    padding-top: 1.5rem;
-    padding-bottom: 2rem;
-}
-
-.main-title {
-    font-size: 38px;
-    font-weight: 750;
-    text-align: center;
-    margin-bottom: 4px;
-}
-
-.main-subtitle {
-    text-align: center;
-    font-size: 17px;
-    opacity: 0.75;
-    margin-bottom: 25px;
-}
-
-.section-header {
-    font-size: 24px;
-    font-weight: 700;
-    margin-top: 15px;
-    margin-bottom: 15px;
-}
-
-.result-card {
-    padding: 20px;
-    border-radius: 14px;
-    border: 1px solid rgba(128,128,128,0.25);
-    min-height: 180px;
-}
-
-.result-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 15px;
-}
-
-.big-result {
-    font-size: 23px;
-    font-weight: 700;
-    margin: 10px 0;
-}
-
-.small-label {
-    font-size: 13px;
-    opacity: 0.7;
-}
-
-.agent-box {
-    padding: 24px;
-    border-radius: 14px;
-    border: 2px solid rgba(128,128,128,0.3);
-    margin-top: 10px;
-    margin-bottom: 20px;
-}
-
-.agent-title {
-    font-size: 25px;
-    font-weight: 750;
-}
-
-.briefing-box {
-    padding: 25px;
-    border-radius: 14px;
-    border: 1px solid rgba(128,128,128,0.3);
-}
-
-.status-ok {
-    font-size: 14px;
-    margin: 7px 0;
-}
-
-.warning-note {
-    font-size: 13px;
-    opacity: 0.75;
-}
+.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+.main-title { font-size: 38px; font-weight: 800; text-align: center; margin-bottom: 4px; font-family: 'Inter', sans-serif; color: var(--text-color); }
+.main-subtitle { text-align: center; font-size: 17px; opacity: 0.8; margin-bottom: 25px; font-family: 'Inter', sans-serif; color: var(--text-color); }
+.section-header { font-size: 24px; font-weight: 800; margin-top: 25px; margin-bottom: 15px; color: var(--text-color); }
+.result-card { padding: 30px; border-radius: 16px; border: 1px solid rgba(128,128,128,0.2); min-height: 180px; background-color: var(--secondary-background-color); }
+.result-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; color: var(--text-color); opacity: 0.8; }
+.big-result { font-size: 26px; font-weight: 800; margin: 10px 0; color: var(--text-color); }
+.small-label { font-size: 13px; opacity: 0.7; color: var(--text-color); }
+.agent-box { padding: 25px; border-radius: 16px; border-left: 5px solid #9c27b0; margin-top: 10px; margin-bottom: 20px; background: linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(103, 58, 183, 0.1) 100%); color: var(--text-color); }
+.agent-title { font-size: 25px; font-weight: 800; color: var(--text-color); }
+.briefing-box { padding: 25px; border-radius: 16px; border-left: 5px solid #00bcd4; background-color: rgba(0, 188, 212, 0.15); color: var(--text-color); }
+.status-ok { font-size: 14px; margin: 7px 0; font-weight: 600; color: #28a745; }
+.warning-note { font-size: 13px; opacity: 0.75; color: var(--text-color); }
 
 </style>
 """, unsafe_allow_html=True)
@@ -407,241 +342,52 @@ st.markdown(
 st.divider()
 
 # ============================================================
-# NAVIGATION
+# CHECK AUTHENTICATION
 # ============================================================
-st.sidebar.markdown("### Navigation")
-app_mode = st.sidebar.radio("Go to", ["Patient Assessment Workflow", "Doctor Dashboard"])
-
-if app_mode == "Doctor Dashboard":
-    st.markdown("## 🏥 Doctor Dashboard")
-    
-    # --------------------------------------------------------
-    # 1. PATIENT SELECTION
-    # --------------------------------------------------------
-    available_patients = get_patients()
-    if not available_patients:
-        st.warning("No patients available in the database.")
-        st.stop()
-        
-    patient_options = {
-        f"{p['patient_id']} - {p['name']}": p["patient_id"] 
-        for p in available_patients
-    }
-    
-    def handle_dashboard_patient_change():
-        pass # state is updated automatically via the selectbox key
-        
-    selected_option = st.selectbox(
-        "Search / Select Patient",
-        options=list(patient_options.keys()),
-        key="dashboard_patient_selector",
-        on_change=handle_dashboard_patient_change
-    )
-    
-    selected_id = patient_options[selected_option]
-    st.session_state["dashboard_patient_id"] = selected_id
-    
-    # Fetch complete patient profile to get UUID
-    profile = get_patient_profile(selected_id)
-    if not profile:
-        st.error("Could not load patient profile.")
-        st.stop()
-        
-    patient_uuid = profile.get("patient_uuid")
-    st.session_state["dashboard_patient_uuid"] = patient_uuid
-    
-    # Fetch all data
-    observations = get_patient_observations(patient_uuid)
-    assessments = get_assessment_history_by_uuid(patient_uuid)
-    risk_flags = get_patient_risk_flags(patient_uuid)
-    med_alerts = get_patient_medication_alerts(patient_uuid)
-    briefings = get_patient_doctor_briefings(patient_uuid)
-    
-    latest_obs = observations[0] if observations else None
-    latest_assessment = assessments[0] if assessments else None
-    
-    st.divider()
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        # --------------------------------------------------------
-        # 2. PATIENT OVERVIEW
-        # --------------------------------------------------------
-        st.markdown("### 👤 Patient Overview")
-        with st.container(border=True):
-            st.markdown(f"**ID:** {profile.get('patient_id')}")
-            st.markdown(f"**Name:** {profile.get('patient_name')}")
-            st.markdown(f"**Age:** {profile.get('age')}")
-            st.markdown(f"**Sex:** {profile.get('gender')}")
-            
-            st.markdown("**Medical History:**")
-            if profile.get('medical_history'):
-                for item in profile.get('medical_history'):
-                    st.markdown(f"- {item}")
-            else:
-                st.write("None")
-                
-            st.markdown("**Current Medications:**")
-            if profile.get('medications'):
-                for item in profile.get('medications'):
-                    st.markdown(f"- {item}")
-            else:
-                st.write("None")
-
-    with col2:
-        # --------------------------------------------------------
-        # 3. LATEST VITALS
-        # --------------------------------------------------------
-        st.markdown("### 📊 Latest Vitals")
-        with st.container(border=True):
-            if latest_obs:
-                st.markdown(f"**❤️ Heart Rate:** {latest_obs.get('heart_rate', 'N/A')} bpm")
-                st.markdown(f"**🫁 SpO₂:** {latest_obs.get('spo2', 'N/A')} %")
-                st.markdown(f"**🌡 Temperature:** {latest_obs.get('temperature', 'N/A')} °C")
-                bp = f"{latest_obs.get('systolic_bp', 'N/A')} / {latest_obs.get('diastolic_bp', 'N/A')}"
-                st.markdown(f"**🩺 Blood Pressure:** {bp} mmHg")
-                
-                rec_at = latest_obs.get("recorded_at", "")
-                st.caption(f"Recorded at: {rec_at} | Source: {latest_obs.get('source', 'UNKNOWN')}")
-            else:
-                st.info("No vital observations available.")
-                
-    st.divider()
-    
-    col3, col4 = st.columns([1, 1])
-    
-    with col3:
-        # --------------------------------------------------------
-        # 4. LATEST AI ASSESSMENT
-        # --------------------------------------------------------
-        st.markdown("### 🤖 Latest AI Assessment")
-        with st.container(border=True):
-            if latest_assessment:
-                st.markdown(f"**Top Candidate:**")
-                st.markdown(f"### {latest_assessment.get('top_prediction')}")
-                st.markdown(f"**Confidence:** {latest_assessment.get('confidence', 0)*100:.1f}%")
-                st.markdown(f"**Confidence Level:** {latest_assessment.get('confidence_level')}")
-                st.markdown(f"**Agentic Decision:** {latest_assessment.get('agent_decision')}")
-                st.markdown(f"**Reason:** {latest_assessment.get('agent_reason')}")
-            else:
-                st.info("No previous AI assessment available.")
-                
-        # --------------------------------------------------------
-        # 8. RISK SUMMARY
-        # --------------------------------------------------------
-        st.markdown("### ⚠ Risk Summary")
-        with st.container(border=True):
-            if latest_assessment and risk_flags:
-                latest_flags = [f for f in risk_flags if f.get("assessment_id") == latest_assessment.get("id")]
-                if latest_flags:
-                    for flag in latest_flags:
-                        st.error(flag.get("risk_message"))
-                else:
-                    st.success("No active risk flags recorded.")
-            else:
-                st.success("No active risk flags recorded.")
-
-    with col4:
-        # --------------------------------------------------------
-        # 9. MEDICATION SAFETY
-        # --------------------------------------------------------
-        st.markdown("### 💊 Medication Safety")
-        with st.container(border=True):
-            if latest_assessment and med_alerts:
-                latest_alerts = [a for a in med_alerts if a.get("assessment_id") == latest_assessment.get("id")]
-                if latest_alerts:
-                    for alert in latest_alerts:
-                        sev = alert.get("severity", "Medium")
-                        color = "red" if sev.lower() == "high" else "orange"
-                        st.markdown(f"**{alert.get('medication_1')} & {alert.get('medication_2')}**")
-                        st.markdown(f"<span style='color:{color}'>Severity: {sev}</span>", unsafe_allow_html=True)
-                        st.markdown(f"*{alert.get('alert_message')}*")
-                        st.divider()
-                else:
-                    st.success("No medication interaction alerts recorded.")
-            else:
-                st.success("No medication interaction alerts recorded.")
-                
-        # --------------------------------------------------------
-        # 7. DOCTOR BRIEFING
-        # --------------------------------------------------------
-        st.markdown("### 🩺 Latest Doctor Briefing")
-        with st.container(border=True):
-            if latest_assessment and briefings:
-                latest_briefing = next((b for b in briefings if b.get("assessment_id") == latest_assessment.get("id")), None)
-                if latest_briefing:
-                    st.markdown(latest_briefing.get("summary"))
-                else:
-                    st.info("No doctor briefing available.")
-            else:
-                st.info("No doctor briefing available.")
-
-    st.divider()
-    
-    # --------------------------------------------------------
-    # 5. ASSESSMENT HISTORY / 6. PATIENT TIMELINE
-    # --------------------------------------------------------
-    st.markdown("### 📜 Patient Timeline / Assessment History")
-    
-    if not assessments and not observations:
-        st.info("No previous assessments found for this patient.")
-    else:
-        timeline_events = []
-        for a in assessments:
-            timeline_events.append({
-                "type": "assessment",
-                "date": a.get("created_at"),
-                "data": a
-            })
-        for o in observations:
-            timeline_events.append({
-                "type": "observation",
-                "date": o.get("recorded_at"),
-                "data": o
-            })
-            
-        timeline_events.sort(key=lambda x: x["date"], reverse=True)
-        
-        current_date = None
-        for event in timeline_events:
-            date_str = event["date"].split("T")[0] if event["date"] and "T" in event["date"] else str(event["date"])
-            if date_str != current_date:
-                st.markdown(f"#### {date_str}")
-                current_date = date_str
-                
-            if event["type"] == "assessment":
-                a = event["data"]
-                with st.expander(f"🤖 Assessment - {a.get('top_prediction')} ({a.get('confidence', 0)*100:.1f}%)"):
-                    st.markdown(f"**Agentic Decision:** {a.get('agent_decision')}")
-                    
-                    a_id = a.get("id")
-                    a_risk = [f for f in risk_flags if f.get("assessment_id") == a_id]
-                    a_meds = [m for m in med_alerts if m.get("assessment_id") == a_id]
-                    a_briefing = next((b for b in briefings if b.get("assessment_id") == a_id), None)
-                    
-                    if a_risk:
-                        st.markdown("**Risk Flags:**")
-                        for f in a_risk:
-                            st.markdown(f"- {f.get('risk_message')}")
-                            
-                    if a_meds:
-                        st.markdown("**Medication Alerts:**")
-                        for m in a_meds:
-                            st.markdown(f"- {m.get('medication_1')} & {m.get('medication_2')}: {m.get('severity')}")
-                            
-                    if a_briefing:
-                        st.markdown("**Doctor Briefing:**")
-                        st.markdown(a_briefing.get("summary"))
-                        
-            elif event["type"] == "observation":
-                o = event["data"]
-                with st.container(border=True):
-                    st.markdown(f"🩺 **Vital Observation** ({o.get('source', 'UNKNOWN')})")
-                    st.markdown(f"HR: {o.get('heart_rate', '-')} | SpO₂: {o.get('spo2', '-')} | Temp: {o.get('temperature', '-')} | BP: {o.get('systolic_bp', '-')}/{o.get('diastolic_bp', '-')}")
-
+if not st.session_state.get("authenticated") or st.session_state.get("user_role") != "admin":
+    st.error("Unauthorized. Please login from the main page.")
     st.stop()
 
+# ============================================================
+# SIDEBAR NAVIGATION
+# ============================================================
+st.sidebar.markdown("### Navigation")
+if "app_menu_selection" not in st.session_state:
+    st.session_state["app_menu_selection"] = "🏠 Overview"
+
+nav_items = [
+    "🏠 Overview",
+    "🩺 AI Assessment Dashboard",
+    "🚪 Logout"
+]
+
+for item in nav_items:
+    if st.sidebar.button(item, use_container_width=True, type="primary" if st.session_state["app_menu_selection"] == item else "secondary"):
+        st.session_state["app_menu_selection"] = item
+        st.rerun()
+
+menu = st.session_state["app_menu_selection"]
+
+if menu == "🚪 Logout":
+    st.session_state["authenticated"] = False
+    st.session_state["user_role"] = None
+    st.session_state["patient_id"] = None
+    st.session_state["patient_uuid"] = None
+    st.rerun()
+
+ca = st.session_state.get("current_assessment")
+
+if menu == "🏠 Overview":
+    st.markdown("## 🧠 Main AI Dashboard")
+    st.write("### Hospital: Apollo Hospitals, Aragonda")
+    st.info("Use the sidebar to navigate the AI assessment workflows.")
+    col1, col2 = st.columns(2)
+    col1.metric("Emergency", "24×7")
+    col2.metric("Telemedicine", "Available")
+    st.stop()
+    
+# We removed Doctor Dashboard block entirely, so we just fall through to the rest of the file 
+# if menu == "🩺 AI Assessment Dashboard"!
 
 # ============================================================
 # FHIR / EHR / SUPABASE INTEGRATION
@@ -1447,6 +1193,9 @@ if assess:
         top_indices[0]
     ]
 
+    predicted_conditions = [label_encoder.inverse_transform([idx])[0] for idx in top_indices]
+    hospital_routing_info = route_patient_to_hospital(valid_symptoms, predicted_conditions, "AH-ARAGONDA")
+
 
     if top_probability >= 0.70:
 
@@ -1706,6 +1455,7 @@ if assess:
         "top_indices": top_indices,
         "probabilities": probabilities,
         "label_encoder": label_encoder,
+        "hospital_routing_info": hospital_routing_info,
         "risk_flags": risk_flags,
         "medication_alerts": medication_alerts,
         "red_flags": red_flags,
@@ -1924,6 +1674,12 @@ if "current_assessment" in st.session_state and st.session_state["current_assess
         hide_index=True
     )
 
+
+    # ========================================================
+    # ROUTING
+    # ========================================================
+    st.markdown("### 🏥 Apollo Aragonda Hospital Routing")
+    st.write(format_routing_result(ca["hospital_routing_info"]))
 
     # ========================================================
     # KNOWLEDGE
@@ -2195,7 +1951,7 @@ if "current_assessment" in st.session_state and st.session_state["current_assess
                     )
                     
                     st.session_state["saved_assessment_hash"] = current_assessment_hash
-                    st.success("Assessment saved successfully to Supabase!")
+                    st.success("✅ Assessment saved successfully.  \n🏥 Patient sent to Doctor Dashboard.  \nStatus: 🟡 Waiting for Doctor Consultation")
                 except ValueError as ve:
                     st.error(str(ve))
                 except Exception as e:
