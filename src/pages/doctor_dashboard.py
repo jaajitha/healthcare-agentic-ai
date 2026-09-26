@@ -342,49 +342,57 @@ if menu == MENU_DASHBOARD:
 # 👥 TODAY'S PATIENTS
 # ------------------------------------------------------------
 elif menu == MENU_TODAY_PATIENTS and not st.session_state.get("doctor_selected_patient_code"):
-    st.markdown('<h2 class="section-title">👥 Today\'s Patients</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-title">👥 Today\'s Patients <span style="font-size: 14px; font-weight: normal; color: green; float: right; margin-top: 10px;">🟢 Live Updates Active</span></h2>', unsafe_allow_html=True)
     
-    try:
-        tp = get_today_encounters(today_str)
-    except Exception as e:
-        st.error(f"Error fetching encounters: {e}")
-        tp = []
-        
-    if not tp:
-        st.info("No patients are waiting for consultation today.")
-    else:
-        tp = sorted(tp, key=lambda x: (x.get("status") == "COMPLETED", x.get("created_at") or ""))
-        for e in tp:
-            patient_data = e.get("patients")
-            if not patient_data: continue
-                
-            st.markdown('<div class="card-container" style="padding: 15px;">', unsafe_allow_html=True)
-            cols = st.columns([1, 2, 2, 2, 2, 2])
+    @st.fragment(run_every="10s")
+    def live_patient_queue():
+        try:
+            # We explicitly clear the cache for this specific call so it gets fresh data
+            import src.services.supabase_client as sc
+            if hasattr(sc.get_today_encounters, "clear"):
+                sc.get_today_encounters.clear()
+            tp = sc.get_today_encounters(today_str)
+        except Exception as e:
+            st.error(f"Error fetching encounters: {e}")
+            tp = []
             
-            p_code = patient_data.get("patient_id")
-            cols[0].markdown(f"**{p_code}**")
-            cols[1].markdown(f"{patient_data.get('name')}")
-            cols[2].markdown(f"{patient_data.get('age')} years • {patient_data.get('gender')}")
-            cols[3].markdown(f"{e.get('department') or 'Unspecified'}")
-            
-            status = e.get("status", "WAITING")
-            if status == "COMPLETED": badge = '<span class="badge-completed">🟢 Completed</span>'
-            elif status == STATUS_IN_CONSULTATION: badge = '<span class="badge-in-consult">🔵 In Consultation</span>'
-            else: badge = '<span class="badge-waiting">🟡 Waiting</span>'
-            cols[4].markdown(badge, unsafe_allow_html=True)
-            
-            with cols[5]:
-                if st.button("Review Patient", key=f"btn_{e['id']}"):
-                    st.session_state["doctor_selected_patient_code"] = p_code
-                    st.session_state["doctor_selected_patient_uuid"] = e.get("patient_id")
-                    st.session_state["doctor_selected_encounter_id"] = e.get("id")
-                    st.session_state["visit_saved_today"] = (status == "COMPLETED")
-                    st.session_state["inner_nav_selection"] = "👤 Patient Profile"
+        if not tp:
+            st.info("No patients are waiting for consultation today.")
+        else:
+            tp = sorted(tp, key=lambda x: (x.get("status") == "COMPLETED", x.get("created_at") or ""))
+            for e in tp:
+                patient_data = e.get("patients")
+                if not patient_data: continue
                     
-                    if status == "WAITING":
-                        update_hospital_encounter_status(e.get("id"), STATUS_IN_CONSULTATION)
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<div class="card-container" style="padding: 15px;">', unsafe_allow_html=True)
+                cols = st.columns([1, 2, 2, 2, 2, 2])
+                
+                p_code = patient_data.get("patient_id")
+                cols[0].markdown(f"**{p_code}**")
+                cols[1].markdown(f"{patient_data.get('name')}")
+                cols[2].markdown(f"{patient_data.get('age')} years • {patient_data.get('gender')}")
+                cols[3].markdown(f"{e.get('department') or 'Unspecified'}")
+                
+                status = e.get("status", "WAITING")
+                if status == "COMPLETED": badge = '<span class="badge-completed">🟢 Completed</span>'
+                elif status == STATUS_IN_CONSULTATION: badge = '<span class="badge-in-consult">🔵 In Consultation</span>'
+                else: badge = '<span class="badge-waiting">🟡 Waiting</span>'
+                cols[4].markdown(badge, unsafe_allow_html=True)
+                
+                with cols[5]:
+                    if st.button("Review Patient", key=f"btn_{e['id']}"):
+                        st.session_state["doctor_selected_patient_code"] = p_code
+                        st.session_state["doctor_selected_patient_uuid"] = e.get("patient_id")
+                        st.session_state["doctor_selected_encounter_id"] = e.get("id")
+                        st.session_state["visit_saved_today"] = (status == "COMPLETED")
+                        st.session_state["inner_nav_selection"] = "👤 Patient Profile"
+                        
+                        if status == "WAITING":
+                            update_hospital_encounter_status(e.get("id"), STATUS_IN_CONSULTATION)
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    live_patient_queue()
 
 
 
@@ -405,21 +413,39 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
         st.error("Unable to load patient information.")
         st.stop()
         
-    # Data fetch for the entire workspace
-    v_res = get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).order("visit_date", desc=True).execute()
+    # --------------------------------------------------------
+    # CONCURRENT DATA FETCHING FOR DOCTOR WORKSPACE
+    # --------------------------------------------------------
+    import concurrent.futures
+
+    def fetch_visits():
+        return get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).order("visit_date", desc=True).execute()
+
+    def fetch_meds():
+        return get_supabase_client().table("doctor_medications").select("*").eq("patient_id", selected_uuid).execute()
+        
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        f_visits = executor.submit(fetch_visits)
+        f_meds = executor.submit(fetch_meds)
+        f_ai = executor.submit(get_assessment_history_by_uuid, selected_uuid)
+        f_risks = executor.submit(get_patient_risk_flags, selected_uuid)
+        f_alerts = executor.submit(get_patient_medication_alerts, selected_uuid)
+        f_briefs = executor.submit(get_patient_doctor_briefings, selected_uuid)
+        
+        v_res = f_visits.result()
+        m_res = f_meds.result()
+        ai_hist = f_ai.result()
+        risks = f_risks.result()
+        med_alerts = f_alerts.result()
+        briefings = f_briefs.result()
+
     p_visits = v_res.data if v_res.data else []
     past_visits = [v for v in p_visits if v.get("visit_date") != today_str]
     today_visit_record = next((v for v in p_visits if v.get("visit_date") == today_str), None)
     
-    m_res = get_supabase_client().table("doctor_medications").select("*").eq("patient_id", selected_uuid).execute()
     p_meds = m_res.data if m_res.data else []
     
-    ai_hist = get_assessment_history_by_uuid(selected_uuid)
     latest_ai = ai_hist[0] if ai_hist else None
-    
-    risks = get_patient_risk_flags(selected_uuid)
-    med_alerts = get_patient_medication_alerts(selected_uuid)
-    briefings = get_patient_doctor_briefings(selected_uuid)
     latest_briefing = briefings[0] if briefings else None
 
     # Workspace Header
@@ -553,31 +579,33 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
             st.write(f"**Patient:** {p_data.get('patient_name')} ({p_data.get('patient_id')}) | **Age:** {p_data.get('age')} | **Gender:** {p_data.get('gender')}")
             st.write(f"**Visit Date:** {today_str} | **Doctor:** {doctor_name}")
             
-            with st.form("todays_visit_form"):
-                st.markdown("#### Doctor's Final Clinical Input")
-                diagnosis = st.text_input("Diagnosis / Clinical Assessment", placeholder="e.g., Acute Bronchitis")
-                notes = st.text_area("Doctor Notes", placeholder="Clinical observations...")
-                
-                st.markdown("#### Prescribed Medicines")
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    med_name = st.text_input("Medication Name")
-                    med_dosage = st.text_input("Dosage")
-                    med_freq = st.text_input("Frequency")
-                with col_m2:
-                    med_dur = st.text_input("Duration")
-                    med_inst = st.text_area("Instructions", height=130)
+            @st.fragment
+            def render_visit_form():
+                with st.form("todays_visit_form"):
+                    st.markdown("#### Doctor's Final Clinical Input")
+                    diagnosis = st.text_input("Diagnosis / Clinical Assessment", placeholder="e.g., Acute Bronchitis")
+                    notes = st.text_area("Doctor Notes", placeholder="Clinical observations...")
                     
-                st.markdown("#### Plan & Follow-up")
-                future_plan = st.text_area("Future Care Plan")
-                req_fup = st.radio("Follow-up Required?", ["No", "Yes"], horizontal=True)
-                follow_up_date = None
-                if req_fup == "Yes":
-                    follow_up_date = st.date_input("Follow-up Date")
+                    st.markdown("#### Prescribed Medicines")
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        med_name = st.text_input("Medication Name")
+                        med_dosage = st.text_input("Dosage")
+                        med_freq = st.text_input("Frequency")
+                    with col_m2:
+                        med_dur = st.text_input("Duration")
+                        med_inst = st.text_area("Instructions", height=130)
+                        
+                    st.markdown("#### Plan & Follow-up")
+                    future_plan = st.text_area("Future Care Plan")
+                    req_fup = st.radio("Follow-up Required?", ["No", "Yes"], horizontal=True)
+                    follow_up_date = None
+                    if req_fup == "Yes":
+                        follow_up_date = st.date_input("Follow-up Date")
+                        
+                    submitted = st.form_submit_button("💾 Save Visit Report")
                     
-                submitted = st.form_submit_button("💾 Save Visit Report")
-                
-                if submitted:
+                    if submitted:
                     if not diagnosis.strip():
                         st.error("Diagnosis or clinical assessment is required.")
                     elif req_fup == "Yes" and not follow_up_date:
@@ -620,6 +648,8 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
                                 st.error("Failed to save visit.")
                         except Exception as e:
                             st.error(f"Error saving visit: {e}")
+
+            render_visit_form()
 
     # --------------------------------------------------------
     # 10. SAVED VISIT REPORT

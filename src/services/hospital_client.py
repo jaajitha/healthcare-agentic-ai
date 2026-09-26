@@ -1,7 +1,11 @@
+
 import streamlit as st
+import functools
+
 import os
 from dotenv import load_dotenv
 from supabase import create_client
+from src.services.supabase_client import get_supabase_client
 
 # ============================================================
 # SUPABASE CONNECTION
@@ -22,6 +26,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # HOSPITAL
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_hospital(hospital_code="AH-ARAGONDA"):
     """
     Get hospital information using the hospital code.
@@ -46,6 +51,7 @@ def get_hospital(hospital_code="AH-ARAGONDA"):
 # DEPARTMENTS / SPECIALITIES
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_departments(hospital_code="AH-ARAGONDA"):
     """
     Get all departments/specialities of the hospital.
@@ -72,6 +78,7 @@ def get_departments(hospital_code="AH-ARAGONDA"):
 # DOCTORS
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_doctors(hospital_code="AH-ARAGONDA"):
     """
     Get all doctors belonging to the hospital.
@@ -98,6 +105,7 @@ def get_doctors(hospital_code="AH-ARAGONDA"):
 # DOCTORS BY SPECIALITY
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_doctors_by_speciality(
     speciality,
     hospital_code="AH-ARAGONDA"
@@ -128,6 +136,7 @@ def get_doctors_by_speciality(
 # HOSPITAL SERVICES
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_services(hospital_code="AH-ARAGONDA"):
     """
     Get hospital services and facilities.
@@ -154,6 +163,7 @@ def get_services(hospital_code="AH-ARAGONDA"):
 # COMPLETE HOSPITAL PROFILE
 # ============================================================
 
+@st.cache_data(ttl="1h")
 def get_hospital_profile(hospital_code="AH-ARAGONDA"):
     """
     Return hospital + departments + doctors + services

@@ -16,6 +16,13 @@ st.set_page_config(
 )
 
 # Initialize Session State
+if "cookie_controller" not in st.session_state:
+    try:
+        from streamlit_cookies_controller import CookieController
+        st.session_state["cookie_controller"] = CookieController()
+    except Exception:
+        st.session_state["cookie_controller"] = None
+
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "user_role" not in st.session_state:
@@ -26,6 +33,22 @@ if "patient_uuid" not in st.session_state:
     st.session_state["patient_uuid"] = None
 if "username" not in st.session_state:
     st.session_state["username"] = None
+
+# Check cookies for persisted authentication
+# Check cookies for persisted authentication using native context (instant)
+if not st.session_state.get("authenticated") and hasattr(st, "context"):
+    try:
+        saved_role = st.context.cookies.get("auth_role")
+        if saved_role:
+            saved_role = saved_role.strip('"').strip("'")
+            st.session_state["authenticated"] = True
+            st.session_state["user_role"] = saved_role
+            st.session_state["username"] = st.context.cookies.get("auth_username", "").strip('"').strip("'")
+            if saved_role == "patient":
+                st.session_state["patient_id"] = st.context.cookies.get("auth_patient_id", "").strip('"').strip("'")
+                st.session_state["patient_uuid"] = st.context.cookies.get("auth_patient_uuid", "").strip('"').strip("'")
+    except Exception as e:
+        print("Cookie read error:", e)
 
 # OAuth redirect handling (Removed URL Auth backdoor)
 if not st.session_state.get("authenticated") and "code" in st.query_params:
@@ -54,9 +77,26 @@ if not st.session_state.get("authenticated") and "code" in st.query_params:
                 except:
                     st.session_state["patient_uuid"] = "fallback-uuid"
             
-            # Clear code from URL
+            # Write to cookie for OAuth login persistence
+            patient_id = st.session_state.get("patient_id", "")
+            patient_uuid = st.session_state.get("patient_uuid", "")
+            email = res.user.email
+            
+            # Clear code from URL first
             del st.query_params["code"]
-            st.rerun()
+            
+            js_code = f"""
+            <script>
+            document.cookie = "auth_role=patient; path=/; max-age=31536000";
+            document.cookie = "auth_username={email}; path=/; max-age=31536000";
+            document.cookie = "auth_patient_id={patient_id}; path=/; max-age=31536000";
+            document.cookie = "auth_patient_uuid={patient_uuid}; path=/; max-age=31536000";
+            window.parent.location.reload();
+            </script>
+            """
+            import streamlit.components.v1 as components
+            components.html(js_code, height=0)
+            st.stop()
     except Exception as e:
         st.error(f"Authentication Error: {e}")
         if "code" in st.query_params:
@@ -68,7 +108,19 @@ def logout():
     st.session_state["patient_id"] = None
     st.session_state["patient_uuid"] = None
     st.session_state["username"] = None
-    st.rerun()
+    
+    js_code = """
+    <script>
+    document.cookie = "auth_role=; path=/; max-age=0";
+    document.cookie = "auth_username=; path=/; max-age=0";
+    document.cookie = "auth_patient_id=; path=/; max-age=0";
+    document.cookie = "auth_patient_uuid=; path=/; max-age=0";
+    window.parent.location.reload();
+    </script>
+    """
+    import streamlit.components.v1 as components
+    components.html(js_code, height=0)
+    st.stop()
 
 # Routing Logic using st.navigation
 if not st.session_state["authenticated"]:

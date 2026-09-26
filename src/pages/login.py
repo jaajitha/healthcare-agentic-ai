@@ -51,7 +51,30 @@ def finalize_login(role, email):
     if role == "patient":
         _finalize_patient(email)
         
-    st.rerun()
+    # Write to cookie for persistence using native JS to prevent st.rerun race condition
+    patient_id = st.session_state.get("patient_id", "")
+    patient_uuid = st.session_state.get("patient_uuid", "")
+    
+    js_code = f"""
+    <script>
+    document.cookie = "auth_role={role}; path=/; max-age=31536000";
+    document.cookie = "auth_username={email}; path=/; max-age=31536000";
+    """
+    
+    if role == "patient":
+        js_code += f"""
+        document.cookie = "auth_patient_id={patient_id}; path=/; max-age=31536000";
+        document.cookie = "auth_patient_uuid={patient_uuid}; path=/; max-age=31536000";
+        """
+        
+    js_code += """
+    window.parent.location.reload();
+    </script>
+    """
+    
+    import streamlit.components.v1 as components
+    components.html(js_code, height=0)
+    st.stop()  # Stop Python execution to allow the JS to render and reload
 
 def _do_patient_login(username, password):
     if username.startswith("P00") and password == "Patient@123":
@@ -73,21 +96,22 @@ def _do_admin_login(username, password):
         st.error("Invalid Admin Username or Password")
 
 def do_login(role, username, password):
-    try:
-        from src.services.supabase_client import sign_in_with_email
-        res = sign_in_with_email(username, password)
-        if res and hasattr(res, 'user') and res.user:
-            finalize_login(role, res.user.email)
-            return
-    except Exception:
-        pass
+    with st.spinner("Authenticating securely..."):
+        try:
+            from src.services.supabase_client import sign_in_with_email
+            res = sign_in_with_email(username, password)
+            if res and hasattr(res, 'user') and res.user:
+                finalize_login(role, res.user.email)
+                return
+        except Exception:
+            pass
 
-    if role == "patient":
-        _do_patient_login(username, password)
-    elif role == "doctor":
-        _do_doctor_login(username, password)
-    elif role == "admin":
-        _do_admin_login(username, password)
+        if role == "patient":
+            _do_patient_login(username, password)
+        elif role == "doctor":
+            _do_doctor_login(username, password)
+        elif role == "admin":
+            _do_admin_login(username, password)
 
 def do_otp_request(email):
     if not email:

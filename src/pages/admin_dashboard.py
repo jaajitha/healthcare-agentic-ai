@@ -1,7 +1,20 @@
 import json
 import pandas as pd
 import joblib
+
 import streamlit as st
+import functools
+
+def session_cache(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Create a unique key for session state
+        key = f"sess_cache_{func.__name__}_{args}_{kwargs}"
+        if key not in st.session_state:
+            st.session_state[key] = func(*args, **kwargs)
+        return st.session_state[key]
+    return wrapper
+
 import datetime
 import sys
 
@@ -264,7 +277,7 @@ def load_model():
 # LOAD KNOWLEDGE BASE
 # ============================================================
 
-@st.cache_data
+@session_cache
 def load_knowledge():
 
     with open(

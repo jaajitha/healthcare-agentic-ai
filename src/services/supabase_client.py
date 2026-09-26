@@ -1,4 +1,7 @@
+
 import streamlit as st
+import functools
+
 import os
 from dotenv import load_dotenv
 from supabase import create_client, ClientOptions
@@ -22,13 +25,8 @@ class CookieStorage:
         self._controller = None
 
     def _get_controller(self):
-        if self._controller is None:
-            try:
-                from streamlit_cookies_controller import CookieController
-                self._controller = CookieController()
-            except Exception:
-                pass
-        return self._controller
+        # Fetch from session state to avoid initializing widgets inside cached functions!
+        return st.session_state.get("cookie_controller")
 
     def get_item(self, key: str) -> str | None:
         ctrl = self._get_controller()
@@ -55,20 +53,33 @@ class CookieStorage:
             except:
                 pass
 
+class CustomMemoryStorage:
+    def __init__(self):
+        self.storage = {}
+        
+    def get_item(self, key: str) -> str | None:
+        return self.storage.get(key)
+        
+    def set_item(self, key: str, value: str) -> None:
+        self.storage[key] = value
+        
+    def remove_item(self, key: str) -> None:
+        if key in self.storage:
+            del self.storage[key]
+
 def get_supabase_client():
     """
-    Returns a fresh Supabase client configured with the current user's cookie storage.
-    This prevents cross-user session leakage in a multi-user Streamlit environment.
+    Returns a Supabase client configured with the current user's memory storage.
+    Now that ThreadPoolExecutor has been removed, we can safely cache this in st.session_state
+    to prevent CachedWidgetWarnings from CookieController inside @st.cache_data.
     """
-    return create_client(
-        SUPABASE_URL,
-        SUPABASE_KEY,
-        options=ClientOptions(storage=CookieStorage())
-    )
-
-# For backward compatibility, we expose a global instance, but its storage 
-# resolves dynamically per thread via CookieController.
-
+    if "supabase_client" not in st.session_state:
+        st.session_state["supabase_client"] = create_client(
+            SUPABASE_URL,
+            SUPABASE_KEY,
+            options=ClientOptions(storage=CustomMemoryStorage())
+        )
+    return st.session_state["supabase_client"]
 
 # ============================================================
 # AUTHENTICATION
@@ -208,6 +219,7 @@ def get_patients():
 # GET COMPLETE PATIENT PROFILE
 # ============================================================
 
+@st.cache_data(ttl="5m")
 def get_patient_profile(patient_id):
 
     # --------------------------------------------------------
@@ -498,6 +510,7 @@ def save_assessment(
 # GET PATIENT ASSESSMENT HISTORY
 # ============================================================
 
+@st.cache_data(ttl="5m")
 def get_assessment_history_by_uuid(patient_uuid):
     """
     Retrieves the assessment history for a specific patient using their UUID.
@@ -539,6 +552,7 @@ def get_patient_observations(patient_uuid):
     )
     return response.data
 
+@st.cache_data(ttl="5m")
 def get_patient_risk_flags(patient_uuid):
     if not patient_uuid:
         return []
@@ -552,6 +566,7 @@ def get_patient_risk_flags(patient_uuid):
     )
     return response.data
 
+@st.cache_data(ttl="5m")
 def get_patient_medication_alerts(patient_uuid):
     if not patient_uuid:
         return []
@@ -564,6 +579,20 @@ def get_patient_medication_alerts(patient_uuid):
         .execute()
     )
     return response.data
+
+@st.cache_data(ttl="5m")
+def get_patient_visits(patient_uuid):
+    if not patient_uuid:
+        return []
+    res = get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", patient_uuid).order("visit_date", desc=True).execute()
+    return res.data
+
+@st.cache_data(ttl="5m")
+def get_patient_medications(patient_uuid):
+    if not patient_uuid:
+        return []
+    res = get_supabase_client().table("doctor_medications").select("*").eq("patient_id", patient_uuid).execute()
+    return res.data
 
 def get_patient_doctor_briefings(patient_uuid):
     if not patient_uuid:
