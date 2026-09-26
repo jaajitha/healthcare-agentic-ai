@@ -150,7 +150,19 @@ with st.sidebar:
     st.markdown("---")
     if st.button(":material/logout: Sign Out", use_container_width=True):
         st.session_state.clear()
-        st.rerun()
+        
+        js_code = """
+        <script>
+        document.cookie = "auth_role=; path=/; max-age=0";
+        document.cookie = "auth_username=; path=/; max-age=0";
+        document.cookie = "auth_patient_id=; path=/; max-age=0";
+        document.cookie = "auth_patient_uuid=; path=/; max-age=0";
+        window.parent.location.reload();
+        </script>
+        """
+        import streamlit.components.v1 as components
+        components.html(js_code, height=0)
+        st.stop()
 
 # ============================================================
 # MAIN HEADER

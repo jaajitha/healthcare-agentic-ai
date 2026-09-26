@@ -241,30 +241,28 @@ today_str = date.today().isoformat()
 # ============================================================
 st.sidebar.markdown(f'''
 <div class="sidebar-profile">
-    <h3>👨‍⚕️ {doctor_name}</h3>
-    <p>{doctor_speciality}</p>
-    <p style="font-size: 12px; margin-top: 10px;">Apollo Hospitals, Aragonda</p>
+    <h3 style="color: #f8fafc; font-size: 20px; font-weight: 700; margin-bottom: 4px;">👨‍⚕️ {doctor_name}</h3>
+    <p style="color: #38bdf8; font-weight: 600; font-size: 14px; margin-top: 0; margin-bottom: 4px;">{doctor_speciality}</p>
+    <p style="color: #64748b; font-size: 12px; margin-top: 0;">Apollo Hospitals, Aragonda</p>
 </div>
+<hr style="border-color: #1e293b; margin-top: 15px; margin-bottom: 20px;">
 ''', unsafe_allow_html=True)
 
 if "doc_menu_selection" not in st.session_state:
     st.session_state["doc_menu_selection"] = MENU_DASHBOARD
 
-st.sidebar.markdown("### Navigation")
+st.sidebar.markdown(f'<p style="color: #64748b; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; padding-left: 16px; margin-bottom: 8px;">Navigation</p>', unsafe_allow_html=True)
 
-if st.sidebar.button(MENU_DASHBOARD, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_DASHBOARD else "secondary"):
-    st.session_state["doc_menu_selection"] = MENU_DASHBOARD
+menu = st.sidebar.radio(
+    "Navigation",
+    options=[MENU_DASHBOARD, MENU_TODAY_PATIENTS, MENU_DR_PROFILE],
+    index=[MENU_DASHBOARD, MENU_TODAY_PATIENTS, MENU_DR_PROFILE].index(st.session_state["doc_menu_selection"]),
+    label_visibility="collapsed"
+)
+
+if menu != st.session_state["doc_menu_selection"]:
+    st.session_state["doc_menu_selection"] = menu
     st.rerun()
-
-if st.sidebar.button(MENU_TODAY_PATIENTS, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_TODAY_PATIENTS else "secondary"):
-    st.session_state["doc_menu_selection"] = MENU_TODAY_PATIENTS
-    st.rerun()
-
-if st.sidebar.button(MENU_DR_PROFILE, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_DR_PROFILE else "secondary"):
-    st.session_state["doc_menu_selection"] = MENU_DR_PROFILE
-    st.rerun()
-
-menu = st.session_state["doc_menu_selection"]
 
 if menu == MENU_DR_PROFILE:
     st.markdown('<h2 class="section-title">👨‍⚕️ Doctor Profile</h2>', unsafe_allow_html=True)
@@ -272,23 +270,26 @@ if menu == MENU_DR_PROFILE:
     st.write(f"**Speciality:** {doctor_speciality}")
     st.write("**Hospital:** Apollo Hospitals, Aragonda")
     st.markdown("<br><br>", unsafe_allow_html=True)
-    if st.button("🚪 Logout"):
-        st.session_state["authenticated"] = False
-        st.session_state["user_role"] = None
-        st.query_params.clear()
-        st.session_state["doctor_selected_patient_code"] = None
-        st.session_state["doctor_selected_patient_uuid"] = None
-        st.session_state["doctor_selected_encounter_id"] = None
-        st.session_state["visit_saved_today"] = False
-        if "inner_nav_selection" in st.session_state:
-            del st.session_state["inner_nav_selection"]
-        st.rerun()
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.clear()
+        js_code = """
+        <script>
+        document.cookie = "auth_role=; path=/; max-age=0";
+        document.cookie = "auth_username=; path=/; max-age=0";
+        document.cookie = "auth_patient_id=; path=/; max-age=0";
+        document.cookie = "auth_patient_uuid=; path=/; max-age=0";
+        window.parent.location.reload();
+        </script>
+        """
+        import streamlit.components.v1 as components
+        components.html(js_code, height=0)
+        st.stop()
 
 # ============================================================
 # MAIN CONTENT
 # ============================================================
 # If a patient is selected, DO NOT show the main global header to keep it clean.
-if not st.session_state.get("doctor_selected_patient_code"):
+if not st.session_state.get("doctor_selected_patient_code") and menu != MENU_DR_PROFILE:
     st.markdown(f"""
     <div class="patient-header">
         <h1>👨‍⚕️ Doctor Dashboard</h1>
@@ -606,48 +607,48 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
                     submitted = st.form_submit_button("💾 Save Visit Report")
                     
                     if submitted:
-                    if not diagnosis.strip():
-                        st.error("Diagnosis or clinical assessment is required.")
-                    elif req_fup == "Yes" and not follow_up_date:
-                        st.error("Please provide a valid follow-up date.")
-                    elif med_name and (not med_dosage or not med_freq):
-                        st.error("Incomplete medication record. Please provide dosage and frequency.")
-                    else:
-                        try:
-                            v_data = {
-                                "patient_id": selected_uuid,
-                                "doctor_id": doctor_uuid,
-                                "visit_date": today_str,
-                                "diagnosis": diagnosis,
-                                "doctor_notes": notes,
-                                "future_plan": future_plan,
-                                "follow_up_date": str(follow_up_date) if req_fup == "Yes" else None
-                            }
-                            v_res = get_supabase_client().table("doctor_visits").insert(v_data).execute()
-                            
-                            if v_res.data:
-                                visit_id = v_res.data[0]["id"]
-                                if med_name:
-                                    m_data = {
-                                        "visit_id": visit_id,
-                                        "patient_id": selected_uuid,
-                                        "medication_name": med_name,
-                                        "dosage": med_dosage,
-                                        "frequency": med_freq,
-                                        "duration": med_dur,
-                                        "instructions": med_inst
-                                    }
-                                    get_supabase_client().table("doctor_medications").insert(m_data).execute()
+                        if not diagnosis.strip():
+                            st.error("Diagnosis or clinical assessment is required.")
+                        elif req_fup == "Yes" and not follow_up_date:
+                            st.error("Please provide a valid follow-up date.")
+                        elif med_name and (not med_dosage or not med_freq):
+                            st.error("Incomplete medication record. Please provide dosage and frequency.")
+                        else:
+                            try:
+                                v_data = {
+                                    "patient_id": selected_uuid,
+                                    "doctor_id": doctor_uuid,
+                                    "visit_date": today_str,
+                                    "diagnosis": diagnosis,
+                                    "doctor_notes": notes,
+                                    "future_plan": future_plan,
+                                    "follow_up_date": str(follow_up_date) if req_fup == "Yes" else None
+                                }
+                                v_res = get_supabase_client().table("doctor_visits").insert(v_data).execute()
                                 
-                                if encounter_id:
-                                    update_hospital_encounter_status(encounter_id, "COMPLETED")
+                                if v_res.data:
+                                    visit_id = v_res.data[0]["id"]
+                                    if med_name:
+                                        m_data = {
+                                            "visit_id": visit_id,
+                                            "patient_id": selected_uuid,
+                                            "medication_name": med_name,
+                                            "dosage": med_dosage,
+                                            "frequency": med_freq,
+                                            "duration": med_dur,
+                                            "instructions": med_inst
+                                        }
+                                        get_supabase_client().table("doctor_medications").insert(m_data).execute()
                                     
-                                st.session_state["visit_saved_today"] = True
-                                st.rerun()
-                            else:
-                                st.error("Failed to save visit.")
-                        except Exception as e:
-                            st.error(f"Error saving visit: {e}")
+                                    if encounter_id:
+                                        update_hospital_encounter_status(encounter_id, "COMPLETED")
+                                        
+                                    st.session_state["visit_saved_today"] = True
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to save visit.")
+                            except Exception as e:
+                                st.error(f"Error saving visit: {e}")
 
             render_visit_form()
 
