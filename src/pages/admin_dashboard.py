@@ -4,10 +4,15 @@ import joblib
 import streamlit as st
 import datetime
 import sys
+
+MENU_OVERVIEW_DASHBOARD = "Overview Dashboard"
+LABEL_SELECT_SEX = "Select sex"
+
 if "supabase_client" in sys.modules:
     del sys.modules["supabase_client"]
 
 from src.services.supabase_client import (
+    get_supabase_client,
     get_patients, 
     get_patient_profile, 
     save_assessment, 
@@ -43,7 +48,7 @@ if "patient_name" not in st.session_state:
 if "age" not in st.session_state:
     st.session_state["age"] = None
 if "sex" not in st.session_state:
-    st.session_state["sex"] = "Select sex"
+    st.session_state["sex"] = LABEL_SELECT_SEX
 if "symptoms_input" not in st.session_state:
     st.session_state["symptoms_input"] = ""
 if "temperature" not in st.session_state:
@@ -330,40 +335,40 @@ def retrieve_disease_information(disease_name):
     return None
 
 
-def calculate_risk_flags(
-    temperature,
-    heart_rate,
-    systolic,
-    diastolic,
-    spo2
-):
-
-    risk_flags = []
-
+def _check_temperature(temperature, risk_flags):
     if temperature is not None:
         if temperature >= 39:
             risk_flags.append("High temperature detected")
         elif temperature < 35:
             risk_flags.append("Low temperature detected")
 
+def _check_heart_rate(heart_rate, risk_flags):
     if heart_rate is not None:
         if heart_rate > 100:
             risk_flags.append("Elevated heart rate detected")
         elif heart_rate < 60:
             risk_flags.append("Low heart rate detected")
 
+def _check_blood_pressure(systolic, diastolic, risk_flags):
     if systolic is not None and diastolic is not None:
         if systolic >= 140 or diastolic >= 90:
             risk_flags.append("Elevated blood pressure detected")
         elif systolic < 90 or diastolic < 60:
             risk_flags.append("Low blood pressure detected")
 
+def _check_spo2(spo2, risk_flags):
     if spo2 is not None:
         if spo2 < 90:
             risk_flags.append("Low oxygen saturation detected")
         elif spo2 < 94:
             risk_flags.append("Reduced oxygen saturation detected")
 
+def calculate_risk_flags(temperature, heart_rate, systolic, diastolic, spo2):
+    risk_flags = []
+    _check_temperature(temperature, risk_flags)
+    _check_heart_rate(heart_rate, risk_flags)
+    _check_blood_pressure(systolic, diastolic, risk_flags)
+    _check_spo2(spo2, risk_flags)
     return risk_flags
 
 
@@ -444,14 +449,14 @@ if not st.session_state.get("authenticated") or st.session_state.get("user_role"
 # ============================================================
 st.sidebar.markdown('<div class="sidebar-title" style="margin-bottom: 0;">Main Menu</div>', unsafe_allow_html=True)
 
-menu_options = ["Overview Dashboard", "AI Assessment Workspace", "System Logout"]
+menu_options = [MENU_OVERVIEW_DASHBOARD, "AI Assessment Workspace", "System Logout"]
 
 if "app_menu_selection" not in st.session_state:
-    st.session_state["app_menu_selection"] = "Overview Dashboard"
+    st.session_state["app_menu_selection"] = MENU_OVERVIEW_DASHBOARD
 
 def handle_menu_change():
     if st.session_state.get("app_menu_selection") == "System Logout":
-        st.session_state["app_menu_selection"] = "Overview Dashboard"
+        st.session_state["app_menu_selection"] = MENU_OVERVIEW_DASHBOARD
         st.session_state["authenticated"] = False
         st.session_state["user_role"] = None
         st.query_params.clear()
@@ -469,11 +474,11 @@ st.sidebar.radio(
 if not st.session_state.get("authenticated", False):
     st.rerun()
 
-menu = st.session_state.get("app_menu_selection", "Overview Dashboard")
+menu = st.session_state.get("app_menu_selection", MENU_OVERVIEW_DASHBOARD)
 
 ca = st.session_state.get("current_assessment")
 
-if menu == "Overview Dashboard":
+if menu == MENU_OVERVIEW_DASHBOARD:
     # Complete Custom HTML Admin Dashboard
     # CRITICAL: Do not use empty lines in this string, or Streamlit's Markdown parser will break the HTML!
     dashboard_html = """
@@ -902,7 +907,7 @@ Temp: <b>{vitals.get('temperature', 'N/A')}°C</b> &nbsp;|&nbsp; HR: <b>{vitals.
                 "Female",
                 "Other"
             ]
-            else "Select sex"
+            else LABEL_SELECT_SEX
         )
 
 
@@ -1073,7 +1078,7 @@ with col3:
 
 with col4:
 
-    sex_options = ["Select sex", "Male", "Female", "Other"]
+    sex_options = [LABEL_SELECT_SEX, "Male", "Female", "Other"]
     sex = st.selectbox(
         "Sex",
         sex_options,
@@ -1736,8 +1741,15 @@ ML candidate — not a confirmed diagnosis.
         disease = label_encoder.inverse_transform([index])[0]
         probability = probabilities[index] * 100
         
-        color = "#0ea5e9" if rank == 1 else ("#3b82f6" if rank == 2 else "#94a3b8")
-        bg_color = "#e0f2fe" if rank == 1 else ("#eff6ff" if rank == 2 else "#f1f5f9")
+        if rank == 1:
+            color = "#0ea5e9"
+            bg_color = "#e0f2fe"
+        elif rank == 2:
+            color = "#3b82f6"
+            bg_color = "#eff6ff"
+        else:
+            color = "#94a3b8"
+            bg_color = "#f1f5f9" 
         
         border_bottom = 'border-bottom: 1px solid #f1f5f9;' if rank < 5 else ''
         margin_bottom = 'margin-bottom: 15px;' if rank < 5 else ''
@@ -1951,16 +1963,8 @@ ML candidate — not a confirmed diagnosis.
             f"{decision_reason}"
         )
 
-    elif agent_decision == (
-        "PRIORITIZE CLINICAL RISK REVIEW"
-    ):
-
-        st.warning(
-            f"### {agent_decision}\n\n"
-            f"{decision_reason}"
-        )
-
-    elif agent_decision == (
+    elif agent_decision in (
+        "PRIORITIZE CLINICAL RISK REVIEW",
         "REVIEW MEDICATION SAFETY"
     ):
 

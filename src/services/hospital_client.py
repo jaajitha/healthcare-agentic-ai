@@ -22,14 +22,13 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # HOSPITAL
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_hospital(hospital_code="AH-ARAGONDA"):
     """
     Get hospital information using the hospital code.
     """
 
     response = (
-        supabase
+        get_supabase_client()
         .table("hospitals")
         .select("*")
         .eq("hospital_code", hospital_code)
@@ -47,7 +46,6 @@ def get_hospital(hospital_code="AH-ARAGONDA"):
 # DEPARTMENTS / SPECIALITIES
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_departments(hospital_code="AH-ARAGONDA"):
     """
     Get all departments/specialities of the hospital.
@@ -59,7 +57,7 @@ def get_departments(hospital_code="AH-ARAGONDA"):
         return []
 
     response = (
-        supabase
+        get_supabase_client()
         .table("departments")
         .select("*")
         .eq("hospital_id", hospital["id"])
@@ -74,7 +72,6 @@ def get_departments(hospital_code="AH-ARAGONDA"):
 # DOCTORS
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_doctors(hospital_code="AH-ARAGONDA"):
     """
     Get all doctors belonging to the hospital.
@@ -86,7 +83,7 @@ def get_doctors(hospital_code="AH-ARAGONDA"):
         return []
 
     response = (
-        supabase
+        get_supabase_client()
         .table("doctors")
         .select("*")
         .eq("hospital_id", hospital["id"])
@@ -101,7 +98,6 @@ def get_doctors(hospital_code="AH-ARAGONDA"):
 # DOCTORS BY SPECIALITY
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_doctors_by_speciality(
     speciality,
     hospital_code="AH-ARAGONDA"
@@ -116,7 +112,7 @@ def get_doctors_by_speciality(
         return []
 
     response = (
-        supabase
+        get_supabase_client()
         .table("doctors")
         .select("*")
         .eq("hospital_id", hospital["id"])
@@ -132,7 +128,6 @@ def get_doctors_by_speciality(
 # HOSPITAL SERVICES
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_services(hospital_code="AH-ARAGONDA"):
     """
     Get hospital services and facilities.
@@ -144,7 +139,7 @@ def get_services(hospital_code="AH-ARAGONDA"):
         return []
 
     response = (
-        supabase
+        get_supabase_client()
         .table("hospital_services")
         .select("*")
         .eq("hospital_id", hospital["id"])
@@ -159,7 +154,6 @@ def get_services(hospital_code="AH-ARAGONDA"):
 # COMPLETE HOSPITAL PROFILE
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_hospital_profile(hospital_code="AH-ARAGONDA"):
     """
     Return hospital + departments + doctors + services

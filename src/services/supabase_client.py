@@ -13,70 +13,78 @@ import json
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Supabase credentials are missing from .env")
 
-class FileStorage:
+class CookieStorage:
     """
-    Robust file-based storage to persist the PKCE code_verifier across hard 
-    OAuth redirects, bypassing Streamlit's session wipe issue.
+    Cookie-based storage to persist the PKCE code_verifier securely per-user,
+    bypassing Streamlit's session wipe issue while avoiding shared state vulnerabilities.
     """
-    def __init__(self, filepath=".supabase_pkce.json"):
-        self.filepath = filepath
+    def __init__(self):
+        self._controller = None
+
+    def _get_controller(self):
+        if self._controller is None:
+            try:
+                from streamlit_cookies_controller import CookieController
+                self._controller = CookieController()
+            except Exception:
+                pass
+        return self._controller
 
     def get_item(self, key: str) -> str | None:
-        try:
-            if os.path.exists(self.filepath):
-                with open(self.filepath, "r") as f:
-                    data = json.load(f)
-                    return data.get(key)
-        except Exception:
-            pass
+        ctrl = self._get_controller()
+        if ctrl:
+            try:
+                return ctrl.get(key)
+            except:
+                pass
         return None
 
     def set_item(self, key: str, value: str) -> None:
-        try:
-            data = {}
-            if os.path.exists(self.filepath):
-                with open(self.filepath, "r") as f:
-                    data = json.load(f)
-            data[key] = value
-            with open(self.filepath, "w") as f:
-                json.dump(data, f)
-        except Exception:
-            pass
+        ctrl = self._get_controller()
+        if ctrl:
+            try:
+                ctrl.set(key, value)
+            except:
+                pass
 
     def remove_item(self, key: str) -> None:
-        try:
-            if os.path.exists(self.filepath):
-                with open(self.filepath, "r") as f:
-                    data = json.load(f)
-                if key in data:
-                    del data[key]
-                    with open(self.filepath, "w") as f:
-                        json.dump(data, f)
-        except Exception:
-            pass
+        ctrl = self._get_controller()
+        if ctrl:
+            try:
+                ctrl.remove(key)
+            except:
+                pass
 
-# Initialize Supabase with robust file storage
-supabase = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY,
-    options=ClientOptions(storage=FileStorage())
-)
+def get_supabase_client():
+    """
+    Returns a fresh Supabase client configured with the current user's cookie storage.
+    This prevents cross-user session leakage in a multi-user Streamlit environment.
+    """
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+        options=ClientOptions(storage=CookieStorage())
+    )
+
+# For backward compatibility, we expose a global instance, but its storage 
+# resolves dynamically per thread via CookieController.
+
 
 # ============================================================
 # AUTHENTICATION
 # ============================================================
 
 def sign_in_with_email(email, password):
-    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+    response = get_supabase_client().auth.sign_in_with_password({"email": email, "password": password})
     return response
 
 def sign_up_with_email(email, password):
-    response = supabase.auth.sign_up({"email": email, "password": password})
+    response = get_supabase_client().auth.sign_up({"email": email, "password": password})
     return response
 
 def sign_in_with_google(redirect_url):
     # Generates the OAuth URL that the user must click to authenticate via Google
-    response = supabase.auth.sign_in_with_oauth({
+    response = get_supabase_client().auth.sign_in_with_oauth({
         "provider": "google",
         "options": {
             "redirect_to": redirect_url
@@ -85,19 +93,19 @@ def sign_in_with_google(redirect_url):
     return response
 
 def send_otp(email):
-    response = supabase.auth.sign_in_with_otp({"email": email})
+    response = get_supabase_client().auth.sign_in_with_otp({"email": email})
     return response
 
 def verify_otp(email, code):
-    response = supabase.auth.verify_otp({"email": email, "token": code, "type": "email"})
+    response = get_supabase_client().auth.verify_otp({"email": email, "token": code, "type": "email"})
     return response
 
 def sign_out():
-    supabase.auth.sign_out()
+    get_supabase_client().auth.sign_out()
 
 def get_current_session():
     try:
-        return supabase.auth.get_session()
+        return get_supabase_client().auth.get_session()
     except:
         return None
 
@@ -106,7 +114,7 @@ def get_patient_by_email(email):
     # Since we didn't have an email column before, we will try to match a hypothetical 'email' column
     # or fallback to creating one.
     try:
-        res = supabase.table("patients").select("*").eq("email", email).execute()
+        res = get_supabase_client().table("patients").select("*").eq("email", email).execute()
         if res.data:
             return res.data[0]
     except:
@@ -119,7 +127,7 @@ def get_patient_by_email(email):
 
 def register_patient(name, age, gender, dob, medical_history, medications):
     response = (
-        supabase
+        get_supabase_client()
         .table("patients")
         .select("patient_id")
         .order("patient_id", desc=True)
@@ -145,7 +153,7 @@ def register_patient(name, age, gender, dob, medical_history, medications):
         "date_of_birth": dob
     }
     
-    patient_res = supabase.table("patients").insert(patient_data).execute()
+    patient_res = get_supabase_client().table("patients").insert(patient_data).execute()
     if not patient_res.data:
         raise Exception("Failed to insert new patient.")
         
@@ -162,7 +170,7 @@ def register_patient(name, age, gender, dob, medical_history, medications):
                 {"patient_id": patient_uuid, "condition_name": item}
                 for item in history_items
             ]
-            supabase.table("conditions").insert(conditions_data).execute()
+            get_supabase_client().table("conditions").insert(conditions_data).execute()
             
     if medications:
         if isinstance(medications, str):
@@ -175,7 +183,7 @@ def register_patient(name, age, gender, dob, medical_history, medications):
                 {"patient_id": patient_uuid, "medication_name": item}
                 for item in med_items
             ]
-            supabase.table("medications").insert(meds_data).execute()
+            get_supabase_client().table("medications").insert(meds_data).execute()
             
     return new_id
 
@@ -183,11 +191,10 @@ def register_patient(name, age, gender, dob, medical_history, medications):
 # GET ALL PATIENTS
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_patients():
 
     response = (
-        supabase
+        get_supabase_client()
         .table("patients")
         .select("*")
         .order("patient_id")
@@ -201,7 +208,6 @@ def get_patients():
 # GET COMPLETE PATIENT PROFILE
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_patient_profile(patient_id):
 
     # --------------------------------------------------------
@@ -209,7 +215,7 @@ def get_patient_profile(patient_id):
     # --------------------------------------------------------
 
     patient_response = (
-        supabase
+        get_supabase_client()
         .table("patients")
         .select("*")
         .eq("patient_id", patient_id)
@@ -231,7 +237,7 @@ def get_patient_profile(patient_id):
     # --------------------------------------------------------
 
     conditions_response = (
-        supabase
+        get_supabase_client()
         .table("conditions")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -246,7 +252,7 @@ def get_patient_profile(patient_id):
     # --------------------------------------------------------
 
     medications_response = (
-        supabase
+        get_supabase_client()
         .table("medications")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -261,7 +267,7 @@ def get_patient_profile(patient_id):
     # --------------------------------------------------------
 
     symptoms_response = (
-        supabase
+        get_supabase_client()
         .table("symptoms")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -276,7 +282,7 @@ def get_patient_profile(patient_id):
     # --------------------------------------------------------
 
     observations_response = (
-        supabase
+        get_supabase_client()
         .table("observations")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -393,7 +399,7 @@ def save_assessment(
     
     # 1. Resolve the patient UUID
     patient_response = (
-        supabase
+        get_supabase_client()
         .table("patients")
         .select("id")
         .eq("patient_id", patient_id)
@@ -417,7 +423,7 @@ def save_assessment(
     }
     
     assessment_response = (
-        supabase
+        get_supabase_client()
         .table("assessments")
         .insert(assessment_data)
         .execute()
@@ -440,7 +446,7 @@ def save_assessment(
             for flag in risk_flags
         ]
         
-        supabase.table("risk_flags").insert(risk_flags_data).execute()
+        get_supabase_client().table("risk_flags").insert(risk_flags_data).execute()
         
     # 4. Insert medication alerts
     if medication_alerts:
@@ -456,7 +462,7 @@ def save_assessment(
             for alert in medication_alerts
         ]
         
-        supabase.table("medication_alerts").insert(med_alerts_data).execute()
+        get_supabase_client().table("medication_alerts").insert(med_alerts_data).execute()
         
     # 5. Insert doctor briefing
     if briefing_summary:
@@ -466,7 +472,7 @@ def save_assessment(
             "summary": briefing_summary
         }
         
-        supabase.table("doctor_briefings").insert(briefing_data).execute()
+        get_supabase_client().table("doctor_briefings").insert(briefing_data).execute()
         
 
     # 6. Insert manual vitals into observations
@@ -482,7 +488,7 @@ def save_assessment(
         }
         # Filter out None values
         obs_data = {k: v for k, v in obs_data.items() if v is not None}
-        supabase.table("observations").insert(obs_data).execute()
+        get_supabase_client().table("observations").insert(obs_data).execute()
 
     return assessment_id
 
@@ -492,7 +498,6 @@ def save_assessment(
 # GET PATIENT ASSESSMENT HISTORY
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_assessment_history_by_uuid(patient_uuid):
     """
     Retrieves the assessment history for a specific patient using their UUID.
@@ -503,7 +508,7 @@ def get_assessment_history_by_uuid(patient_uuid):
     
     # Get assessments
     assessments_response = (
-        supabase
+        get_supabase_client()
         .table("assessments")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -521,12 +526,11 @@ def get_assessment_history_by_uuid(patient_uuid):
 # DOCTOR DASHBOARD: ADDITIONAL DATA FETCHERS
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_patient_observations(patient_uuid):
     if not patient_uuid:
         return []
     response = (
-        supabase
+        get_supabase_client()
         .table("observations")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -535,12 +539,11 @@ def get_patient_observations(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl=10)
 def get_patient_risk_flags(patient_uuid):
     if not patient_uuid:
         return []
     response = (
-        supabase
+        get_supabase_client()
         .table("risk_flags")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -549,12 +552,11 @@ def get_patient_risk_flags(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl=10)
 def get_patient_medication_alerts(patient_uuid):
     if not patient_uuid:
         return []
     response = (
-        supabase
+        get_supabase_client()
         .table("medication_alerts")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -563,12 +565,11 @@ def get_patient_medication_alerts(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl=10)
 def get_patient_doctor_briefings(patient_uuid):
     if not patient_uuid:
         return []
     response = (
-        supabase
+        get_supabase_client()
         .table("doctor_briefings")
         .select("*")
         .eq("patient_id", patient_uuid)
@@ -581,19 +582,18 @@ def get_patient_doctor_briefings(patient_uuid):
 # HOSPITAL ENCOUNTERS (DERIVED)
 # ============================================================
 
-@st.cache_data(ttl=10)
 def get_today_encounters(today_date_str):
     # Derive today's patients from assessments and doctor_visits
-    patients_res = supabase.table('patients').select('*').execute()
+    patients_res = get_supabase_client().table('patients').select('*').execute()
     patients = patients_res.data if patients_res.data else []
     
     # 1. Assessments created today
-    assess_res = supabase.table('assessments').select('patient_id, created_at').gte('created_at', today_date_str).execute()
+    assess_res = get_supabase_client().table('assessments').select('patient_id, created_at').gte('created_at', today_date_str).execute()
     today_assessments = assess_res.data if assess_res.data else []
     today_assess_uuids = [a['patient_id'] for a in today_assessments]
     
     # 2. Doctor visits today (or follow ups today)
-    visits_res = supabase.table('doctor_visits').select('patient_id, visit_date, follow_up_date').execute()
+    visits_res = get_supabase_client().table('doctor_visits').select('patient_id, visit_date, follow_up_date').execute()
     all_visits = visits_res.data if visits_res.data else []
     
     encounters = []

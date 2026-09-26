@@ -2,8 +2,94 @@ import streamlit as st
 import pandas as pd
 import json
 
+MENU_DASHBOARD = "🏠 Dashboard"
+HTML_CARD_CONTAINER = '<div class="card-container">'
+HTML_DIV_END = '</div>'
+
+HTML_REPORT_CSS = """<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * { font-family: 'Inter', sans-serif !important; }
+    
+    .stApp { background-color: #F8F9FA; }
+    
+    /* Clean headers */
+    .patient-header, .main-title, .section-title {
+        color: #0056b3 !important;
+        border-bottom: 2px solid #E3F2FD;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        font-weight: 700;
+    }
+    
+    .patient-header {
+        background-color: #FFFFFF;
+        padding: 25px 30px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        border-left: 6px solid #0056b3;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .patient-header h1 { font-size: 32px; margin: 0; font-weight: 800; color: #212529; border: none; }
+    .patient-header p { font-size: 15px; color: #6c757d; margin-top: 5px; }
+    
+    .main-subtitle { font-size: 16px; color: #6c757d; font-weight: 400; text-align: center; margin-bottom: 25px; }
+    .section-header { font-size: 20px; font-weight: 700; color: #0056b3; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #FFFFFF;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        border-top: 4px solid #0056b3;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #6c757d; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+    .metric-value, .big-result { font-size: 26px; font-weight: 700; color: #212529; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #495057; margin-bottom: 15px; }
+    
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 15px; border-radius: 6px; color: #856404; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #E3F2FD; border-left: 4px solid #0D6EFD; padding: 15px; border-radius: 6px; color: #004085; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #E2E3E5; border-left: 4px solid #383D41; padding: 15px; border-radius: 6px; color: #383D41; font-size: 14px; margin-bottom: 15px; }
+    
+    .status-ok { font-size: 14px; margin: 5px 0; font-weight: 600; color: #198754; }
+    .warning-note { font-size: 13px; color: #856404; }
+    .workspace-title { font-size: 18px; font-weight: 600; color: #212529; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* Sidebar / Menus */
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; border: 1px solid transparent; transition: 0.2s; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: #f8f9fa; border-color: #dee2e6; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #E3F2FD; border: 1px solid #90CAF9; color: #0056b3; font-weight: 600; }
+    
+    .sidebar-profile { background-color: #F8F9FA; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 20px; }
+    .sidebar-profile h3 { margin: 0; font-size: 16px; color: #212529; font-weight: 600; }
+    .sidebar-profile p { margin: 5px 0 0 0; font-size: 13px; color: #6c757d; }
+    
+    /* Inner nav styling (doctor_dashboard) */
+    .inner-nav-container div[role="radiogroup"] > label > div:first-child { display: none; }
+    .inner-nav-container div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; background-color: #f8f9fa; border: 1px solid #dee2e6; cursor: pointer; }
+    .inner-nav-container div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #D4EDDA; border-color: #198754; color: #155724; font-weight: 600; }
+    
+    /* Badges */
+    .badge-waiting { background-color: #FFF3CD; color: #856404; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-completed { background-color: #D4EDDA; color: #155724; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-in-consult { background-color: #CCE5FF; color: #004085; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+</style>"""
+
 from src.services.supabase_client import (
-    supabase,
+    get_supabase_client,
     get_patient_profile,
     get_assessment_history_by_uuid,
     get_patient_risk_flags,
@@ -206,8 +292,8 @@ if not patient_profile:
 
 # 1. Doctor Visits
 visits_response = (
-    supabase
-    .table("doctor_visits")
+        get_supabase_client()
+        .table("doctor_visits")
     .select("*, doctors(name)")
     .eq("patient_id", selected_patient_uuid)
     .order("visit_date", desc=True)
@@ -218,8 +304,8 @@ latest_visit = doctor_visits[0] if doctor_visits else None
 
 # 2. Doctor Medications
 medications_response = (
-    supabase
-    .table("doctor_medications")
+        get_supabase_client()
+        .table("doctor_medications")
     .select("*")
     .eq("patient_id", selected_patient_uuid)
     .execute()
@@ -244,10 +330,10 @@ st.sidebar.markdown(f'''
 ''', unsafe_allow_html=True)
 
 if "pat_menu_selection" not in st.session_state:
-    st.session_state["pat_menu_selection"] = "🏠 Dashboard"
+    st.session_state["pat_menu_selection"] = MENU_DASHBOARD
 
 nav_items = [
-    "🏠 Dashboard",
+    MENU_DASHBOARD,
     "📅 Medical History",
     "🏥 Hospital & AI",
     "👤 My Profile",
@@ -268,7 +354,7 @@ menu = st.session_state["pat_menu_selection"]
 # ------------------------------------------------------------
 # 🏠 Dashboard
 # ------------------------------------------------------------
-if menu == "🏠 Dashboard":
+if menu == MENU_DASHBOARD:
     st.markdown(f'''
     <div class="patient-header" style="background: linear-gradient(135deg, rgba(128, 128, 128, 0.05) 0%, rgba(128, 128, 128, 0.02) 100%); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; margin-bottom: 30px; border: 1px solid rgba(128,128,128,0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
         <h1 style="margin: 0; font-size: 28px; font-weight: 800;">Welcome, {patient_profile.get('patient_name')}</h1>
@@ -375,7 +461,7 @@ elif menu == "📅 Medical History":
             st.info("No prescriptions have been recorded.")
         else:
             for med in doctor_medications:
-                st.markdown(f'<div class="card-container">', unsafe_allow_html=True)
+                st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
                 st.markdown(f"### 💊 {med.get('medication_name').title()}")
                 mc1, mc2 = st.columns(2)
                 with mc1:
@@ -385,13 +471,13 @@ elif menu == "📅 Medical History":
                     st.markdown(f"**Duration:** {med.get('duration', 'N/A')}")
                     st.markdown(f"**Prescribed by:** Dr. {med.get('doctor_name', 'Unknown')}")
                 st.markdown(f"**Instructions:** {med.get('instructions', 'None')}")
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown(HTML_DIV_END, unsafe_allow_html=True)
 
     with tabs[2]:
         col_d1, col_d2 = st.columns(2)
         
         with col_d1:
-            st.markdown('<div class="card-container">', unsafe_allow_html=True)
+            st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
             st.markdown("### 📝 Detailed Medical Report")
             st.write("A beautifully formatted HTML report of your profile, visits, and medications.")
             
@@ -429,87 +515,7 @@ elif menu == "📅 Medical History":
             <head>
                 <meta charset="UTF-8">
                 <title>Medical Report - {patient_profile.get('patient_name')}</title>
-                <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    * { font-family: 'Inter', sans-serif !important; }
-    
-    .stApp { background-color: #F8F9FA; }
-    
-    /* Clean headers */
-    .patient-header, .main-title, .section-title {
-        color: #0056b3 !important;
-        border-bottom: 2px solid #E3F2FD;
-        padding-bottom: 10px;
-        margin-bottom: 25px;
-        font-weight: 700;
-    }
-    
-    .patient-header {
-        background-color: #FFFFFF;
-        padding: 25px 30px;
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-        border-left: 6px solid #0056b3;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    
-    .patient-header h1 { font-size: 32px; margin: 0; font-weight: 800; color: #212529; border: none; }
-    .patient-header p { font-size: 15px; color: #6c757d; margin-top: 5px; }
-    
-    .main-subtitle { font-size: 16px; color: #6c757d; font-weight: 400; text-align: center; margin-bottom: 25px; }
-    .section-header { font-size: 20px; font-weight: 700; color: #0056b3; margin-top: 20px; margin-bottom: 15px; }
-    
-    /* Clean Cards */
-    .card-container, .metric-card, .workspace-section, .result-card {
-        background-color: #FFFFFF;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        margin-bottom: 20px;
-    }
-    
-    .metric-card {
-        border-top: 4px solid #0056b3;
-        text-align: center;
-        transition: transform 0.2s ease;
-    }
-    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
-    
-    .metric-title, .small-label { font-size: 13px; color: #6c757d; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
-    .metric-value, .big-result { font-size: 26px; font-weight: 700; color: #212529; margin-bottom: 0px; }
-    .result-title { font-size: 16px; font-weight: 600; color: #495057; margin-bottom: 15px; }
-    
-    /* Medical Alert/Info Boxes */
-    .disclaimer-box { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 15px; border-radius: 6px; color: #856404; font-size: 14px; margin-bottom: 15px; }
-    .briefing-box, .doctor-box { background-color: #E3F2FD; border-left: 4px solid #0D6EFD; padding: 15px; border-radius: 6px; color: #004085; font-size: 14px; margin-bottom: 15px; }
-    .agent-box, .ai-box { background-color: #E2E3E5; border-left: 4px solid #383D41; padding: 15px; border-radius: 6px; color: #383D41; font-size: 14px; margin-bottom: 15px; }
-    
-    .status-ok { font-size: 14px; margin: 5px 0; font-weight: 600; color: #198754; }
-    .warning-note { font-size: 13px; color: #856404; }
-    .workspace-title { font-size: 18px; font-weight: 600; color: #212529; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px; }
-    
-    /* Sidebar / Menus */
-    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; border: 1px solid transparent; transition: 0.2s; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: #f8f9fa; border-color: #dee2e6; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #E3F2FD; border: 1px solid #90CAF9; color: #0056b3; font-weight: 600; }
-    
-    .sidebar-profile { background-color: #F8F9FA; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 20px; }
-    .sidebar-profile h3 { margin: 0; font-size: 16px; color: #212529; font-weight: 600; }
-    .sidebar-profile p { margin: 5px 0 0 0; font-size: 13px; color: #6c757d; }
-    
-    /* Inner nav styling (doctor_dashboard) */
-    .inner-nav-container div[role="radiogroup"] > label > div:first-child { display: none; }
-    .inner-nav-container div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; background-color: #f8f9fa; border: 1px solid #dee2e6; cursor: pointer; }
-    .inner-nav-container div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #D4EDDA; border-color: #198754; color: #155724; font-weight: 600; }
-    
-    /* Badges */
-    .badge-waiting { background-color: #FFF3CD; color: #856404; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .badge-completed { background-color: #D4EDDA; color: #155724; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .badge-in-consult { background-color: #CCE5FF; color: #004085; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-</style>
+                {HTML_REPORT_CSS}
             </head>
             <body>
                 <div class="header">
@@ -561,10 +567,10 @@ elif menu == "📅 Medical History":
                 mime="text/html",
                 use_container_width=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(HTML_DIV_END, unsafe_allow_html=True)
             
         with col_d2:
-            st.markdown('<div class="card-container">', unsafe_allow_html=True)
+            st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
             st.markdown("### 🔗 FHIR Data")
             st.write("A structured JSON format for interoperability with other healthcare systems.")
             
@@ -593,7 +599,7 @@ elif menu == "📅 Medical History":
                     st.warning("FHIR data not available in the hospital database.")
             except Exception as e:
                 st.warning("Unable to load FHIR data.")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(HTML_DIV_END, unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # 🏥 Hospital & AI
@@ -616,7 +622,7 @@ elif menu == "🏥 Hospital & AI":
             else:
                 st.write("No doctor-recorded diagnosis available.")
             st.markdown("<hr><small>This represents the treating doctor's recorded clinical assessment.</small>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(HTML_DIV_END, unsafe_allow_html=True)
             
         with col_ai:
             st.markdown('<div class="ai-box">', unsafe_allow_html=True)
@@ -627,7 +633,7 @@ elif menu == "🏥 Hospital & AI":
             else:
                 st.write("No AI-assisted assessment is available.")
             st.markdown("<hr><small>This is an AI-generated decision-support output and is NOT a confirmed diagnosis.</small>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(HTML_DIV_END, unsafe_allow_html=True)
             
         st.markdown("---")
         
@@ -679,7 +685,7 @@ elif menu == "🏥 Hospital & AI":
                 st.info("No doctors are currently associated with your records.")
             else:
                 for d in doctors:
-                    st.markdown(f'<div class="card-container"><strong>Dr. {d}</strong><br><small>Treating Physician</small></div>', unsafe_allow_html=True)
+                    st.markdown(f'{HTML_CARD_CONTAINER}<strong>Dr. {d}</strong><br><small>Treating Physician</small>{HTML_DIV_END}', unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # 👤 My Profile
@@ -783,7 +789,7 @@ elif menu == "👤 My Profile":
     profile_tabs = st.tabs(["📋 Personal Info", "🏥 Essential Needs"])
     
     with profile_tabs[0]:
-        st.markdown('<div class="card-container">', unsafe_allow_html=True)
+        st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"**Full Name:** {patient_profile.get('patient_name')}")
@@ -795,7 +801,7 @@ elif menu == "👤 My Profile":
             st.markdown("**Email:** patient@example.com")
             st.markdown("**Address:** Aragonda Village, AP")
             st.markdown("**Registered On:** 2024-01-15")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(HTML_DIV_END, unsafe_allow_html=True)
         st.caption("This page is read-only. To update your demographic information, please contact the hospital administration desk.")
     
     with profile_tabs[1]:
@@ -852,7 +858,7 @@ elif menu == "⚙️ Settings":
     st.markdown('<h2 class="section-title">⚙️ App Settings</h2>', unsafe_allow_html=True)
     
     st.markdown("### App Preferences")
-    st.markdown('<div class="card-container">', unsafe_allow_html=True)
+    st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
     
     st.toggle("📧 Receive Email Notifications for Appointments", value=True)
     st.toggle("📱 Receive SMS Alerts for Medication Reminders", value=True)
@@ -860,13 +866,13 @@ elif menu == "⚙️ Settings":
     
     st.markdown("---")
     st.selectbox("Language Preference", ["English", "Telugu (తెలుగు)", "Hindi (हिंदी)"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(HTML_DIV_END, unsafe_allow_html=True)
     
     st.markdown("### Account Security")
-    st.markdown('<div class="card-container">', unsafe_allow_html=True)
+    st.markdown(HTML_CARD_CONTAINER, unsafe_allow_html=True)
     st.button("Update Password")
     st.button("Manage Devices")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(HTML_DIV_END, unsafe_allow_html=True)
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     

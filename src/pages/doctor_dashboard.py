@@ -4,10 +4,17 @@ from datetime import date
 import json
 import sys
 
+MENU_DASHBOARD = "🏠 Dashboard"
+MENU_TODAY_PATIENTS = "👥 Today's Patients"
+MENU_DR_PROFILE = "👨‍⚕️ Dr. Profile"
+STATUS_IN_CONSULTATION = "IN CONSULTATION"
+
+
 if "supabase_client" in sys.modules:
     del sys.modules["supabase_client"]
 
 from src.services.supabase_client import (
+    get_supabase_client,
     get_patients as supabase_get_patients,
     get_patient_profile as supabase_get_patient_profile,
     get_patient_risk_flags,
@@ -16,7 +23,6 @@ from src.services.supabase_client import (
     get_assessment_history_by_uuid,
     get_today_encounters,
     update_hospital_encounter_status,
-    supabase
 )
 
 from src.services.hospital_client import get_hospital
@@ -210,7 +216,7 @@ if not st.session_state.get("authenticated") or st.session_state.get("user_role"
 doctor_name = "Dr V Sukaveni"
 doctor_speciality = "Internal Medicine"
 
-d_res = supabase.table("doctors").select("id").eq("name", doctor_name).execute()
+d_res = get_supabase_client().table("doctors").select("id").eq("name", doctor_name).execute()
 doctor_uuid = d_res.data[0]["id"] if d_res.data else None
 
 # ============================================================
@@ -242,25 +248,25 @@ st.sidebar.markdown(f'''
 ''', unsafe_allow_html=True)
 
 if "doc_menu_selection" not in st.session_state:
-    st.session_state["doc_menu_selection"] = "🏠 Dashboard"
+    st.session_state["doc_menu_selection"] = MENU_DASHBOARD
 
 st.sidebar.markdown("### Navigation")
 
-if st.sidebar.button("🏠 Dashboard", use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == "🏠 Dashboard" else "secondary"):
-    st.session_state["doc_menu_selection"] = "🏠 Dashboard"
+if st.sidebar.button(MENU_DASHBOARD, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_DASHBOARD else "secondary"):
+    st.session_state["doc_menu_selection"] = MENU_DASHBOARD
     st.rerun()
 
-if st.sidebar.button("👥 Today's Patients", use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == "👥 Today's Patients" else "secondary"):
-    st.session_state["doc_menu_selection"] = "👥 Today's Patients"
+if st.sidebar.button(MENU_TODAY_PATIENTS, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_TODAY_PATIENTS else "secondary"):
+    st.session_state["doc_menu_selection"] = MENU_TODAY_PATIENTS
     st.rerun()
 
-if st.sidebar.button("👨‍⚕️ Dr. Profile", use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == "👨‍⚕️ Dr. Profile" else "secondary"):
-    st.session_state["doc_menu_selection"] = "👨‍⚕️ Dr. Profile"
+if st.sidebar.button(MENU_DR_PROFILE, use_container_width=True, type="primary" if st.session_state["doc_menu_selection"] == MENU_DR_PROFILE else "secondary"):
+    st.session_state["doc_menu_selection"] = MENU_DR_PROFILE
     st.rerun()
 
 menu = st.session_state["doc_menu_selection"]
 
-if menu == "👨‍⚕️ Dr. Profile":
+if menu == MENU_DR_PROFILE:
     st.markdown('<h2 class="section-title">👨‍⚕️ Doctor Profile</h2>', unsafe_allow_html=True)
     st.write(f"**Name:** {doctor_name}")
     st.write(f"**Speciality:** {doctor_speciality}")
@@ -293,7 +299,7 @@ if not st.session_state.get("doctor_selected_patient_code"):
 # ------------------------------------------------------------
 # 🏠 DASHBOARD
 # ------------------------------------------------------------
-if menu == "🏠 Dashboard":
+if menu == MENU_DASHBOARD:
     st.markdown('<h2 class="section-title">📊 Today\'s Overview</h2>', unsafe_allow_html=True)
     try:
         tp = get_today_encounters(today_str)
@@ -301,9 +307,9 @@ if menu == "🏠 Dashboard":
         tp = []
     total_tp = len(tp)
     completed = len([e for e in tp if e.get("status") == "COMPLETED"])
-    waiting = len([e for e in tp if e.get("status") in ["WAITING", "IN CONSULTATION"]])
+    waiting = len([e for e in tp if e.get("status") in ["WAITING", STATUS_IN_CONSULTATION]])
     
-    visits_res = supabase.table("doctor_visits").select("follow_up_date").execute()
+    visits_res = get_supabase_client().table("doctor_visits").select("follow_up_date").execute()
     all_fups = [v.get("follow_up_date") for v in (visits_res.data or []) if v.get("follow_up_date") and v.get("follow_up_date") > today_str]
     fups_count = len(all_fups)
     
@@ -335,7 +341,7 @@ if menu == "🏠 Dashboard":
 # ------------------------------------------------------------
 # 👥 TODAY'S PATIENTS
 # ------------------------------------------------------------
-elif menu == "👥 Today's Patients" and not st.session_state.get("doctor_selected_patient_code"):
+elif menu == MENU_TODAY_PATIENTS and not st.session_state.get("doctor_selected_patient_code"):
     st.markdown('<h2 class="section-title">👥 Today\'s Patients</h2>', unsafe_allow_html=True)
     
     try:
@@ -363,12 +369,12 @@ elif menu == "👥 Today's Patients" and not st.session_state.get("doctor_select
             
             status = e.get("status", "WAITING")
             if status == "COMPLETED": badge = '<span class="badge-completed">🟢 Completed</span>'
-            elif status == "IN CONSULTATION": badge = '<span class="badge-in-consult">🔵 In Consultation</span>'
+            elif status == STATUS_IN_CONSULTATION: badge = '<span class="badge-in-consult">🔵 In Consultation</span>'
             else: badge = '<span class="badge-waiting">🟡 Waiting</span>'
             cols[4].markdown(badge, unsafe_allow_html=True)
             
             with cols[5]:
-                if st.button(f"Review Patient", key=f"btn_{e['id']}"):
+                if st.button("Review Patient", key=f"btn_{e['id']}"):
                     st.session_state["doctor_selected_patient_code"] = p_code
                     st.session_state["doctor_selected_patient_uuid"] = e.get("patient_id")
                     st.session_state["doctor_selected_encounter_id"] = e.get("id")
@@ -376,7 +382,7 @@ elif menu == "👥 Today's Patients" and not st.session_state.get("doctor_select
                     st.session_state["inner_nav_selection"] = "👤 Patient Profile"
                     
                     if status == "WAITING":
-                        update_hospital_encounter_status(e.get("id"), "IN CONSULTATION")
+                        update_hospital_encounter_status(e.get("id"), STATUS_IN_CONSULTATION)
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -385,7 +391,7 @@ elif menu == "👥 Today's Patients" and not st.session_state.get("doctor_select
 # ============================================================
 # 👤 COMPLETE PATIENT REVIEW (WORKSPACE)
 # ============================================================
-if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_patient_code"):
+if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient_code"):
     selected_code = st.session_state.get("doctor_selected_patient_code")
     selected_uuid = st.session_state.get("doctor_selected_patient_uuid")
     encounter_id = st.session_state.get("doctor_selected_encounter_id")
@@ -400,12 +406,12 @@ if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_pat
         st.stop()
         
     # Data fetch for the entire workspace
-    v_res = supabase.table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).order("visit_date", desc=True).execute()
+    v_res = get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).order("visit_date", desc=True).execute()
     p_visits = v_res.data if v_res.data else []
     past_visits = [v for v in p_visits if v.get("visit_date") != today_str]
     today_visit_record = next((v for v in p_visits if v.get("visit_date") == today_str), None)
     
-    m_res = supabase.table("doctor_medications").select("*").eq("patient_id", selected_uuid).execute()
+    m_res = get_supabase_client().table("doctor_medications").select("*").eq("patient_id", selected_uuid).execute()
     p_meds = m_res.data if m_res.data else []
     
     ai_hist = get_assessment_history_by_uuid(selected_uuid)
@@ -497,7 +503,7 @@ if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_pat
     with tabs[2]:
         st.markdown('**Apollo Hospitals, Aragonda**')
         st.write("**Suggested Speciality:** Appropriate Department Based on Symptoms")
-        st.write(f"**Relevant Doctor:** Recommended available specialist")
+        st.write("**Relevant Doctor:** Recommended available specialist")
         st.caption("Hospital routing is decision support based on reported symptoms and available hospital data. Final clinical decisions remain with the treating doctor.")
 
     # --------------------------------------------------------
@@ -589,7 +595,7 @@ if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_pat
                                 "future_plan": future_plan,
                                 "follow_up_date": str(follow_up_date) if req_fup == "Yes" else None
                             }
-                            v_res = supabase.table("doctor_visits").insert(v_data).execute()
+                            v_res = get_supabase_client().table("doctor_visits").insert(v_data).execute()
                             
                             if v_res.data:
                                 visit_id = v_res.data[0]["id"]
@@ -603,7 +609,7 @@ if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_pat
                                         "duration": med_dur,
                                         "instructions": med_inst
                                     }
-                                    supabase.table("doctor_medications").insert(m_data).execute()
+                                    get_supabase_client().table("doctor_medications").insert(m_data).execute()
                                 
                                 if encounter_id:
                                     update_hospital_encounter_status(encounter_id, "COMPLETED")
@@ -623,7 +629,7 @@ if menu == "👥 Today's Patients" and st.session_state.get("doctor_selected_pat
             st.info("No visit report has been saved for today yet.")
         else:
             if not today_visit_record:
-                 v_res = supabase.table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).eq("visit_date", today_str).limit(1).execute()
+                 v_res = get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", selected_uuid).eq("visit_date", today_str).limit(1).execute()
                  today_visit_record = v_res.data[0] if v_res.data else {}
                  
             st.write(f"**Patient:** {p_data.get('patient_name')} | **Doctor:** {today_visit_record.get('doctors', {}).get('name', 'Unknown')} | **Visit Date:** {today_visit_record.get('visit_date')}")

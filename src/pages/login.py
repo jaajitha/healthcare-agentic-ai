@@ -21,6 +21,27 @@ def initialize_session():
     if "otp_sent_to" not in st.session_state:
         st.session_state["otp_sent_to"] = None
 
+def _finalize_patient_fallback():
+    from src.services.supabase_client import get_supabase_client
+    st.session_state["patient_id"] = "P001"
+    try:
+        p001_res = get_supabase_client().table("patients").select("id").eq("patient_id", "P001").execute()
+        st.session_state["patient_uuid"] = p001_res.data[0]["id"] if p001_res.data else "fallback-uuid"
+    except Exception:
+        st.session_state["patient_uuid"] = "fallback-uuid"
+
+def _finalize_patient(email):
+    try:
+        from src.services.supabase_client import get_patient_by_email
+        patient = get_patient_by_email(email)
+        if patient:
+            st.session_state["patient_id"] = patient.get("patient_id")
+            st.session_state["patient_uuid"] = patient.get("id")
+        else:
+            _finalize_patient_fallback()
+    except Exception:
+        _finalize_patient_fallback()
+
 def finalize_login(role, email):
     st.session_state["authenticated"] = True
     st.session_state["user_role"] = role
@@ -28,43 +49,28 @@ def finalize_login(role, email):
     st.session_state["otp_sent_to"] = None
     
     if role == "patient":
-        try:
-            from src.services.supabase_client import get_patient_by_email
-            patient = get_patient_by_email(email)
-            if patient:
-                st.session_state["patient_id"] = patient.get("patient_id")
-                st.session_state["patient_uuid"] = patient.get("id")
-                st.query_params["auth_role"] = "patient"
-                st.query_params["auth_user"] = email
-                st.query_params["auth_uuid"] = patient.get("id")
-            else:
-                from src.services.supabase_client import supabase
-                st.session_state["patient_id"] = "P001"
-                try:
-                    p001_res = supabase.table("patients").select("id").eq("patient_id", "P001").execute()
-                    st.session_state["patient_uuid"] = p001_res.data[0]["id"] if p001_res.data else "fallback-uuid"
-                except:
-                    st.session_state["patient_uuid"] = "fallback-uuid"
-                st.query_params["auth_role"] = "patient"
-        except:
-            from src.services.supabase_client import supabase
-            st.session_state["patient_id"] = "P001"
-            try:
-                p001_res = supabase.table("patients").select("id").eq("patient_id", "P001").execute()
-                st.session_state["patient_uuid"] = p001_res.data[0]["id"] if p001_res.data else "fallback-uuid"
-            except:
-                st.session_state["patient_uuid"] = "fallback-uuid"
-            st.query_params["auth_role"] = "patient"
-            
-    elif role == "doctor":
-        st.query_params["auth_role"] = "doctor"
-        st.query_params["auth_user"] = email
-        
-    elif role == "admin":
-        st.query_params["auth_role"] = "admin"
-        st.query_params["auth_user"] = email
+        _finalize_patient(email)
         
     st.rerun()
+
+def _do_patient_login(username, password):
+    if username.startswith("P00") and password == "Patient@123":
+        finalize_login("patient", username)
+    else:
+        st.error("Invalid Email/ID or Password")
+
+def _do_doctor_login(username, password):
+    valid_doctors = ["dr.sreedhar.b@apollohospitals.com", "dr.bharathi.mv@apollohospitals.com", "doctor"]
+    if username in valid_doctors and password == "Doctor@123":
+        finalize_login("doctor", username)
+    else:
+        st.error("Invalid Doctor Email or Password")
+
+def _do_admin_login(username, password):
+    if username == "admin" and password == "Admin@123":
+        finalize_login("admin", username)
+    else:
+        st.error("Invalid Admin Username or Password")
 
 def do_login(role, username, password):
     try:
@@ -73,25 +79,15 @@ def do_login(role, username, password):
         if res and hasattr(res, 'user') and res.user:
             finalize_login(role, res.user.email)
             return
-    except Exception as e:
+    except Exception:
         pass
 
     if role == "patient":
-        if username.startswith("P00") and password == "Patient@123":
-            finalize_login("patient", username)
-        else:
-            st.error("Invalid Email/ID or Password")
+        _do_patient_login(username, password)
     elif role == "doctor":
-        valid_doctors = ["dr.sreedhar.b@apollohospitals.com", "dr.bharathi.mv@apollohospitals.com", "doctor"]
-        if username in valid_doctors and password == "Doctor@123":
-            finalize_login("doctor", username)
-        else:
-            st.error("Invalid Doctor Email or Password")
+        _do_doctor_login(username, password)
     elif role == "admin":
-        if username == "admin" and password == "Admin@123":
-            finalize_login("admin", username)
-        else:
-            st.error("Invalid Admin Username or Password")
+        _do_admin_login(username, password)
 
 def do_otp_request(email):
     if not email:
@@ -125,7 +121,7 @@ def render_google_button():
                 st.session_state["google_auth_url"] = res.url
             else:
                 st.session_state["google_auth_url"] = "#"
-        except Exception as e:
+        except Exception:
             st.session_state["google_auth_url"] = "#"
             
     target_url = st.session_state["google_auth_url"]
@@ -155,23 +151,79 @@ def render_google_button():
     """
     st.markdown(btn_html, unsafe_allow_html=True)
 
+def _render_patient_tab():
+    if st.session_state["otp_sent_to"]:
+        st.info(f"📧 Code sent to **{st.session_state['otp_sent_to']}**")
+        with st.form("otp_verify_form", clear_on_submit=False, border=False):
+            otp_code = st.text_input("Enter 6-digit Code", placeholder="123456", label_visibility="collapsed")
+            if st.form_submit_button("Verify & Sign In", type="primary", use_container_width=True):
+                do_otp_verify("patient", st.session_state["otp_sent_to"], otp_code)
+        if st.button("Cancel", type="secondary", use_container_width=True):
+            st.session_state["otp_sent_to"] = None
+            st.rerun()
+    else:
+        mode = st.radio("Login Method", ["Password", "Magic Link"], horizontal=True, label_visibility="collapsed")
+        if mode == "Password":
+            with st.form("patient_login_form", clear_on_submit=False, border=False):
+                p_user = st.text_input("Email / ID", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
+                p_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
+                
+                c1, c2 = st.columns([1, 1])
+                with c1:
+                    st.checkbox("Remember me", value=True, key="p_rem")
+                with c2:
+                    st.markdown('<div class="forgot-link"><a href="#">Forgot password?</a></div>', unsafe_allow_html=True)
+                    
+                if st.form_submit_button("Sign in", type="primary", use_container_width=True):
+                    do_login("patient", p_user, p_pass)
+        else:
+            with st.form("otp_request_form", clear_on_submit=False, border=False):
+                otp_email = st.text_input("Email Address", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
+                if st.form_submit_button("Send Magic Link", type="primary", use_container_width=True):
+                    do_otp_request(otp_email)
+        st.markdown('<div class="divider">or</div>', unsafe_allow_html=True)
+        render_google_button()
+
+def _render_doctor_tab():
+    with st.form("doctor_login_form", clear_on_submit=False, border=False):
+        d_user = st.text_input("Work Email", placeholder="provider@apollo.com", label_visibility="collapsed")
+        d_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
+        
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.checkbox("Remember me", value=True, key="d_rem")
+        with c2:
+            st.markdown('<div class="forgot-link"><a href="#">Forgot password?</a></div>', unsafe_allow_html=True)
+            
+        if st.form_submit_button("Sign in to Workspace", type="primary", use_container_width=True):
+            do_login("doctor", d_user, d_pass)
+    st.markdown('<div class="divider">or</div>', unsafe_allow_html=True)
+    render_google_button()
+
+def _render_admin_tab():
+    with st.form("admin_login_form", clear_on_submit=False, border=False):
+        a_user = st.text_input("Admin Username", placeholder="admin.workspace", label_visibility="collapsed")
+        a_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
+        if st.form_submit_button("Access Console", type="primary", use_container_width=True):
+            do_login("admin", a_user, a_pass)
+
 def render_login_page():
     initialize_session()
     
-    css = f"""<style>
+    css = """<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* Full Page Setup */
-.stApp {{
+.stApp {
     background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.9)), 
                 url("https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80") center/cover no-repeat fixed;
     font-family: 'Inter', sans-serif !important;
-}}
+}
 
-header[data-testid="stHeader"], footer {{ display: none !important; }}
+header[data-testid="stHeader"], footer { display: none !important; }
 
 /* Left Side Branding (Injected via Markdown) */
-.left-branding {{
+.left-branding {
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: 55%;
@@ -182,15 +234,15 @@ header[data-testid="stHeader"], footer {{ display: none !important; }}
     color: white;
     z-index: 5;
     pointer-events: none;
-}}
-.left-branding h1 {{ font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -1px; }}
-.left-branding p {{ font-size: 20px; font-weight: 400; color: #cbd5e1; max-width: 480px; line-height: 1.5; }}
-.brand-logo {{ display: flex; align-items: center; margin-bottom: 60px; }}
-.brand-logo svg {{ width: 32px; height: 32px; margin-right: 12px; color: #38bdf8; }}
-.brand-logo span {{ font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }}
+}
+.left-branding h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -1px; }
+.left-branding p { font-size: 20px; font-weight: 400; color: #cbd5e1; max-width: 480px; line-height: 1.5; }
+.brand-logo { display: flex; align-items: center; margin-bottom: 60px; }
+.brand-logo svg { width: 32px; height: 32px; margin-right: 12px; color: #38bdf8; }
+.brand-logo span { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
 
 /* Right Side Form Container */
-.block-container {{
+.block-container {
     position: fixed !important;
     right: 0 !important;
     top: 0 !important;
@@ -202,16 +254,16 @@ header[data-testid="stHeader"], footer {{ display: none !important; }}
     box-shadow: -20px 0 50px rgba(0,0,0,0.3);
     overflow-y: auto;
     z-index: 10;
-}}
+}
 
 /* Clean Enterprise Typography */
-.auth-title {{ color: #0f172a; font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }}
-.auth-subtitle {{ color: #64748b; font-size: 16px; margin-bottom: 40px; font-weight: 400; }}
+.auth-title { color: #0f172a; font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+.auth-subtitle { color: #64748b; font-size: 16px; margin-bottom: 40px; font-weight: 400; }
 
 /* Minimalist Tabs (Segmented Control Style) */
 div[data-testid="stTabs"] button[data-baseweb="tab"], 
 div[data-testid="stTabs"] button[id^="tabs-"],
-.stTabs button {{
+.stTabs button {
     flex: 1 1 0 !important;
     background: #f8fafc !important;
     border: 1px solid #e2e8f0 !important;
@@ -221,82 +273,82 @@ div[data-testid="stTabs"] button[id^="tabs-"],
     border-radius: 8px !important;
     transition: all 0.3s ease !important;
     margin: 0 5px !important;
-}}
+}
 div[data-testid="stTabs"] button[aria-selected="true"],
-.stTabs button[aria-selected="true"] {{
+.stTabs button[aria-selected="true"] {
     background: #ffffff !important;
     color: #0f172a !important;
     border: 1px solid #0f172a !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-}}
+}
 div[data-testid="stTabs"] button:hover,
-.stTabs button:hover {{
+.stTabs button:hover {
     border-color: #94a3b8 !important;
-}}
+}
 
 /* Hide Streamlit Native Tab Underlines / Tracks */
 div[data-testid="stTabs"] [data-baseweb="tab-border"],
 div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
 .stTabs [data-baseweb="tab-border"],
-.stTabs [data-baseweb="tab-highlight"] {{ 
+.stTabs [data-baseweb="tab-highlight"] { 
     display: none !important; 
-}}
+}
 div[data-testid="stTabs"] div[style*="border-bottom"],
-.stTabs div[style*="border-bottom"] {{ 
+.stTabs div[style*="border-bottom"] { 
     border-bottom: none !important; 
-}}
+}
 
 /* Form Inputs - Highly Visible */
-.stTextInput > div > div {{
+.stTextInput > div > div {
     background-color: #f8fafc !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 8px !important;
     transition: all 0.2s ease;
-}}
-.stTextInput > div > div:focus-within {{
+}
+.stTextInput > div > div:focus-within {
     background-color: #ffffff !important;
     border-color: #0f172a !important;
     box-shadow: 0 0 0 1px #0f172a !important;
-}}
-.stTextInput > div > div > input {{
+}
+.stTextInput > div > div > input {
     background-color: transparent !important;
     border: none !important;
     color: #0f172a !important;
     font-size: 15px !important;
     padding: 14px 16px !important;
     box-shadow: none !important;
-}}
+}
 
 /* Checkbox and Link Styling */
-.stCheckbox {{ margin-top: 5px !important; margin-bottom: 5px !important; }}
-.stCheckbox label p {{ color: #64748b !important; font-size: 14px !important; font-weight: 500 !important; }}
-.forgot-link {{ text-align: right; margin-top: 10px; font-size: 14px; font-weight: 500; }}
-.forgot-link a {{ color: #0f172a; text-decoration: none; transition: color 0.2s; }}
-.forgot-link a:hover {{ color: #2563eb; text-decoration: underline; }}
+.stCheckbox { margin-top: 5px !important; margin-bottom: 5px !important; }
+.stCheckbox label p { color: #64748b !important; font-size: 14px !important; font-weight: 500 !important; }
+.forgot-link { text-align: right; margin-top: 10px; font-size: 14px; font-weight: 500; }
+.forgot-link a { color: #0f172a; text-decoration: none; transition: color 0.2s; }
+.forgot-link a:hover { color: #2563eb; text-decoration: underline; }
 
 /* Minimal Radio */
-.stRadio label {{ color: #475569 !important; font-weight: 500 !important; }}
-.stRadio {{ margin-bottom: 5px !important; }}
+.stRadio label { color: #475569 !important; font-weight: 500 !important; }
+.stRadio { margin-bottom: 5px !important; }
 
 /* Primary Button */
-div[data-testid="stButton"] button[kind="primary"] {{
+div[data-testid="stButton"] button[kind="primary"] {
     background-color: #0f172a !important; 
     color: white !important; border: none !important;
     border-radius: 6px !important; font-weight: 600 !important; font-size: 15px !important;
     padding: 12px 0 !important; width: 100% !important;
     transition: background-color 0.2s !important;
-}}
-div[data-testid="stButton"] button[kind="primary"]:hover {{ background-color: #1e293b !important; }}
+}
+div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #1e293b !important; }
 
 /* Divider */
-.divider {{ display: flex; align-items: center; text-align: center; margin: 25px 0; color: #94a3b8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }}
-.divider::before, .divider::after {{ content: ''; flex: 1; border-bottom: 1px solid #f1f5f9; }}
-.divider:not(:empty)::before {{ margin-right: 15px; }}
-.divider:not(:empty)::after {{ margin-left: 15px; }}
+.divider { display: flex; align-items: center; text-align: center; margin: 25px 0; color: #94a3b8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+.divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #f1f5f9; }
+.divider:not(:empty)::before { margin-right: 15px; }
+.divider:not(:empty)::after { margin-left: 15px; }
 
 /* Remove streamlt spacing */
-div[data-testid="stForm"] {{ padding: 0 !important; border: none !important; margin: 0 !important; }}
-[data-testid="stVerticalBlock"] {{ gap: 15px !important; }}
+div[data-testid="stForm"] { padding: 0 !important; border: none !important; margin: 0 !important; }
+[data-testid="stVerticalBlock"] { gap: 15px !important; }
 </style>"""
     st.markdown(css, unsafe_allow_html=True)
     
@@ -322,61 +374,13 @@ div[data-testid="stForm"] {{ padding: 0 !important; border: none !important; mar
     tab1, tab2, tab3 = st.tabs(["Patient", "Doctor", "Clinical Staff"])
     
     with tab1:
-        if st.session_state["otp_sent_to"]:
-            st.info(f"📧 Code sent to **{st.session_state['otp_sent_to']}**")
-            with st.form("otp_verify_form", clear_on_submit=False, border=False):
-                otp_code = st.text_input("Enter 6-digit Code", placeholder="123456", label_visibility="collapsed")
-                if st.form_submit_button("Verify & Sign In", type="primary", use_container_width=True):
-                    do_otp_verify("patient", st.session_state["otp_sent_to"], otp_code)
-            if st.button("Cancel", type="secondary", use_container_width=True):
-                st.session_state["otp_sent_to"] = None
-                st.rerun()
-        else:
-            mode = st.radio("Login Method", ["Password", "Magic Link"], horizontal=True, label_visibility="collapsed")
-            if mode == "Password":
-                with st.form("patient_login_form", clear_on_submit=False, border=False):
-                    p_user = st.text_input("Email / ID", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
-                    p_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
-                    
-                    c1, c2 = st.columns([1, 1])
-                    with c1:
-                        st.checkbox("Remember me", value=True, key="p_rem")
-                    with c2:
-                        st.markdown('<div class="forgot-link"><a href="#">Forgot password?</a></div>', unsafe_allow_html=True)
-                        
-                    if st.form_submit_button("Sign in", type="primary", use_container_width=True):
-                        do_login("patient", p_user, p_pass)
-            else:
-                with st.form("otp_request_form", clear_on_submit=False, border=False):
-                    otp_email = st.text_input("Email Address", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
-                    if st.form_submit_button("Send Magic Link", type="primary", use_container_width=True):
-                        do_otp_request(otp_email)
-            st.markdown('<div class="divider">or</div>', unsafe_allow_html=True)
-            render_google_button()
+        _render_patient_tab()
             
     with tab2:
-        with st.form("doctor_login_form", clear_on_submit=False, border=False):
-            d_user = st.text_input("Work Email", placeholder="provider@apollo.com", label_visibility="collapsed")
-            d_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
-            
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                st.checkbox("Remember me", value=True, key="d_rem")
-            with c2:
-                st.markdown('<div class="forgot-link"><a href="#">Forgot password?</a></div>', unsafe_allow_html=True)
-                
-            if st.form_submit_button("Sign in to Workspace", type="primary", use_container_width=True):
-                do_login("doctor", d_user, d_pass)
-        st.markdown('<div class="divider">or</div>', unsafe_allow_html=True)
-        render_google_button()
+        _render_doctor_tab()
 
     with tab3:
-        with st.form("admin_login_form", clear_on_submit=False, border=False):
-            a_user = st.text_input("Admin Username", placeholder="admin.workspace", label_visibility="collapsed")
-            a_pass = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
-            if st.form_submit_button("Access Console", type="primary", use_container_width=True):
-                do_login("admin", a_user, a_pass)
+        _render_admin_tab()
 
-if __name__ == "__main__":
-    st.set_page_config(page_title="Login - Apollo Hospitals", page_icon="🏥", layout="wide")
-    render_login_page()
+# Run the page
+render_login_page()
