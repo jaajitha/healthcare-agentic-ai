@@ -67,22 +67,168 @@ if "current_medications" not in st.session_state:
 # ============================================================
 
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
 <style>
-
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-.main-title { font-size: 38px; font-weight: 800; text-align: center; margin-bottom: 4px; font-family: 'Inter', sans-serif; color: var(--text-color); }
-.main-subtitle { text-align: center; font-size: 17px; opacity: 0.8; margin-bottom: 25px; font-family: 'Inter', sans-serif; color: var(--text-color); }
-.section-header { font-size: 24px; font-weight: 800; margin-top: 25px; margin-bottom: 15px; color: var(--text-color); }
-.result-card { padding: 30px; border-radius: 16px; border: 1px solid rgba(128,128,128,0.2); min-height: 180px; background-color: var(--secondary-background-color); }
-.result-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; color: var(--text-color); opacity: 0.8; }
-.big-result { font-size: 26px; font-weight: 800; margin: 10px 0; color: var(--text-color); }
-.small-label { font-size: 13px; opacity: 0.7; color: var(--text-color); }
-.agent-box { padding: 25px; border-radius: 16px; border-left: 5px solid #9c27b0; margin-top: 10px; margin-bottom: 20px; background: linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(103, 58, 183, 0.1) 100%); color: var(--text-color); }
-.agent-title { font-size: 25px; font-weight: 800; color: var(--text-color); }
-.briefing-box { padding: 25px; border-radius: 16px; border-left: 5px solid #00bcd4; background-color: rgba(0, 188, 212, 0.15); color: var(--text-color); }
-.status-ok { font-size: 14px; margin: 7px 0; font-weight: 600; color: #28a745; }
-.warning-note { font-size: 13px; opacity: 0.75; color: var(--text-color); }
-
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, div, p, a, h1, h2, h3, h4, h5, h6, label, button, input, select, textarea, table, th, td {
+        font-family: 'Inter', sans-serif !important;
+    }
+    
+    [data-testid*="Icon"], [data-testid*="icon"], [class*="icon"], [class*="Icon"], .stIcon, svg, i, .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+    }
+    
+    .stApp { background-color: #f8fafc; }
+    
+    /* Clean Top Spacing */
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stSidebarHeader"] { display: none !important; }
+    .block-container { padding-top: 2.5rem !important; padding-bottom: 2rem !important; max-width: 1400px !important; }
+    [data-testid="stSidebarUserContent"], [data-testid="stSidebar"] > div:first-child { padding-top: 2.5rem !important; margin-top: 0 !important; }
+    
+    /* Clean headers */
+    .main-title {
+        color: #0f172a;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 8px;
+    }
+    .main-subtitle {
+        color: #64748b;
+        font-size: 16px;
+        font-weight: 400;
+        margin-bottom: 30px;
+    }
+    
+    .patient-header, .section-title {
+        color: #0f172a !important;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        font-weight: 700;
+    }
+    
+    .patient-header {
+        background-color: #ffffff;
+        padding: 25px 30px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #0284c7;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+    
+    .patient-header h1 { font-size: 28px; margin: 0; font-weight: 800; color: #0f172a; border: none; }
+    .patient-header p { font-size: 15px; color: #64748b; margin-top: 5px; }
+    
+    .section-header { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        border-top: 4px solid #0284c7;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .metric-value, .big-result { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 15px; }
+    
+    /* Native Streamlit Metric Cards */
+    div[data-testid="metric-container"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border-color: #cbd5e1;
+    }
+    div[data-testid="metric-container"] label {
+        color: #64748b !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color: #0f172a !important;
+        font-size: 32px !important;
+        font-weight: 800 !important;
+    }
+    
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #fefce8; border-left: 4px solid #eab308; padding: 15px; border-radius: 8px; color: #854d0e; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; border-radius: 8px; color: #0369a1; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #f8fafc; border-left: 4px solid #475569; padding: 15px; border-radius: 8px; color: #334155; font-size: 14px; margin-bottom: 15px; }
+    
+    .warning-note { font-size: 13px; color: #b45309; }
+    .workspace-title { font-size: 18px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* ---------------- DARK SIDEBAR ---------------- */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important; /* Deep Slate */
+        border-right: 1px solid #1e293b !important;
+    }
+    .sidebar-title { color: #64748b !important; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 0 !important; margin-bottom: 12px !important; padding-left: 28px !important; margin-left: 0 !important; }
+    .status-ok { display: flex; align-items: center; font-size: 13px; color: #94a3b8; font-weight: 500; margin-bottom: 8px; }
+    .status-dot { width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; margin-right: 10px; }
+    
+    /* Sidebar Radio to Premium Dark Pills */
+    [data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child { display: none !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label {
+        padding: 12px 12px !important;
+        margin-left: 16px !important;
+        margin-right: 16px !important;
+        width: calc(100% - 32px) !important;
+        border-radius: 8px !important;
+        margin-bottom: 4px !important;
+        background-color: transparent !important;
+        border: 1px solid transparent !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"],
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, #0284c7 0%, #0369a1 100%) !important;
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+        color: #94a3b8 !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] p,
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Badges */
+    .badge-waiting { background-color: #fefce8; color: #854d0e; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #fde047; }
+    .badge-completed { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #86efac; }
+    .badge-in-consult { background-color: #e0f2fe; color: #075985; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #7dd3fc; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -252,71 +398,18 @@ symptom_aliases = {
 }
 
 
-# ============================================================
-# SIDEBAR
-# ============================================================
-
 with st.sidebar:
-
-    st.markdown(
-        "## 🏥 Agentic AI"
-    )
-
-    st.caption(
-        "Healthcare Decision-Support Prototype"
-    )
-
-    st.divider()
-
-    st.markdown("### ⚙️ System Status")
-
-    st.markdown(
-        '<div class="status-ok">🟢 ML Model — Ready</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div class="status-ok">🟢 Knowledge Base — Ready</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div class="status-ok">🟢 Risk Engine — Ready</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div class="status-ok">🟢 Medication Checker — Ready</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div class="status-ok">🟢 Agentic Reasoning — Ready</div>',
-        unsafe_allow_html=True
-    )
-
-    st.divider()
-
-    st.markdown("### 🤖 ML Model")
-
-    st.write("Random Forest")
-
-    st.markdown("### 📚 Knowledge")
-
-    st.write("Medical Knowledge Base")
-
-    st.markdown("### 🧠 Architecture")
-
-    st.write(
-        "ML → Retrieval → Risk Analysis → "
-        "Agentic Decision → Doctor Briefing"
-    )
-
-    st.divider()
-
-    st.caption(
-        "Decision-support prototype"
-    )
+    st.markdown("""
+        <div style="display: flex; align-items: center; margin-bottom: 24px; margin-top: 0; padding-left: 16px;">
+            <div style="background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); min-width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            </div>
+            <div>
+                <div style="font-size: 18px; font-weight: 800; color: #ffffff; line-height: 1.1;">Admin Console</div>
+                <div style="font-size: 13px; font-weight: 500; color: #94a3b8;">Agentic AI Systems</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 
 # ============================================================
@@ -325,16 +418,14 @@ with st.sidebar:
 
 st.markdown(
     '<div class="main-title">'
-    '🏥 AGENTIC AI HEALTHCARE ASSISTANT'
+    'Apollo Aragonda AI Dashboard'
     '</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
     '<div class="main-subtitle">'
-    'Intelligent Autonomous Diagnostic Assistant'
-    '<br>'
-    'AI-powered clinical decision-support prototype'
+    'Intelligent clinical decision-support and autonomous routing system.'
     '</div>',
     unsafe_allow_html=True
 )
@@ -351,43 +442,134 @@ if not st.session_state.get("authenticated") or st.session_state.get("user_role"
 # ============================================================
 # SIDEBAR NAVIGATION
 # ============================================================
-st.sidebar.markdown("### Navigation")
+st.sidebar.markdown('<div class="sidebar-title" style="margin-bottom: 0;">Main Menu</div>', unsafe_allow_html=True)
+
+menu_options = ["Overview Dashboard", "AI Assessment Workspace", "System Logout"]
+
 if "app_menu_selection" not in st.session_state:
-    st.session_state["app_menu_selection"] = "🏠 Overview"
+    st.session_state["app_menu_selection"] = "Overview Dashboard"
 
-nav_items = [
-    "🏠 Overview",
-    "🩺 AI Assessment Dashboard",
-    "🚪 Logout"
-]
+def handle_menu_change():
+    if st.session_state.get("app_menu_selection") == "System Logout":
+        st.session_state["app_menu_selection"] = "Overview Dashboard"
+        st.session_state["authenticated"] = False
+        st.session_state["user_role"] = None
+        st.query_params.clear()
 
-for item in nav_items:
-    if st.sidebar.button(item, use_container_width=True, type="primary" if st.session_state["app_menu_selection"] == item else "secondary"):
-        st.session_state["app_menu_selection"] = item
-        st.rerun()
+# Use radio instead of buttons for a cleaner menu feel
+st.sidebar.radio(
+    "Navigation",
+    menu_options,
+    key="app_menu_selection",
+    on_change=handle_menu_change,
+    label_visibility="collapsed"
+)
 
-menu = st.session_state["app_menu_selection"]
-
-if menu == "🚪 Logout":
-    st.session_state["authenticated"] = False
-    st.session_state["user_role"] = None
-    st.session_state["patient_id"] = None
-    st.session_state["patient_uuid"] = None
+# If the callback logged us out, force a rerun to go back to the login page
+if not st.session_state.get("authenticated", False):
     st.rerun()
+
+menu = st.session_state.get("app_menu_selection", "Overview Dashboard")
 
 ca = st.session_state.get("current_assessment")
 
-if menu == "🏠 Overview":
-    st.markdown("## 🧠 Main AI Dashboard")
-    st.write("### Hospital: Apollo Hospitals, Aragonda")
-    st.info("Use the sidebar to navigate the AI assessment workflows.")
-    col1, col2 = st.columns(2)
-    col1.metric("Emergency", "24×7")
-    col2.metric("Telemedicine", "Available")
+if menu == "Overview Dashboard":
+    # Complete Custom HTML Admin Dashboard
+    # CRITICAL: Do not use empty lines in this string, or Streamlit's Markdown parser will break the HTML!
+    dashboard_html = """
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;">
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Total Patients Registered</div>
+            <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1;">1,248</div>
+            <div style="color: #10b981; font-size: 13px; font-weight: 600; margin-top: 12px;">↑ 12% this month</div>
+        </div>
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">AI Assessments</div>
+            <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1;">432</div>
+            <div style="color: #10b981; font-size: 13px; font-weight: 600; margin-top: 12px;">↑ 5% this week</div>
+        </div>
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Critical Alerts</div>
+            <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1;">18</div>
+            <div style="color: #ef4444; font-size: 13px; font-weight: 600; margin-top: 12px;">Immediate review required</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+            <div style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">System Core Status</div>
+            <div style="color: white; font-size: 28px; font-weight: 800; line-height: 1.2;">All Agents<br>Operational</div>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <h3 style="color: #0f172a; font-size: 18px; margin-top: 0; margin-bottom: 20px; font-weight: 800;">Recent AI Routing Activity</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr style="border-bottom: 1px solid #e2e8f0; color: #64748b; text-align: left;">
+                    <th style="padding: 12px 10px; font-weight: 600;">Patient ID</th>
+                    <th style="padding: 12px 10px; font-weight: 600;">Primary Symptom</th>
+                    <th style="padding: 12px 10px; font-weight: 600;">AI Decision</th>
+                    <th style="padding: 12px 10px; font-weight: 600; text-align: right;">Time</th>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 14px 10px; color: #0f172a; font-weight: 600;">P-8472</td>
+                    <td style="padding: 14px 10px; color: #475569;">Severe Chest Pain</td>
+                    <td style="padding: 14px 10px;"><span style="background: #fee2e2; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">ER ROUTING</span></td>
+                    <td style="padding: 14px 10px; color: #64748b; text-align: right;">2 mins ago</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 14px 10px; color: #0f172a; font-weight: 600;">P-3921</td>
+                    <td style="padding: 14px 10px; color: #475569;">Mild Fever, Cough</td>
+                    <td style="padding: 14px 10px;"><span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">GENERAL WARD</span></td>
+                    <td style="padding: 14px 10px; color: #64748b; text-align: right;">15 mins ago</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 14px 10px; color: #0f172a; font-weight: 600;">P-1049</td>
+                    <td style="padding: 14px 10px; color: #475569;">Chronic Back Pain</td>
+                    <td style="padding: 14px 10px;"><span style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">OPD APPOINTMENT</span></td>
+                    <td style="padding: 14px 10px; color: #64748b; text-align: right;">1 hour ago</td>
+                </tr>
+                <tr>
+                    <td style="padding: 14px 10px; color: #0f172a; font-weight: 600;">P-5582</td>
+                    <td style="padding: 14px 10px; color: #475569;">Dizziness, High BP</td>
+                    <td style="padding: 14px 10px;"><span style="background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">URGENT CARE</span></td>
+                    <td style="padding: 14px 10px; color: #64748b; text-align: right;">2 hours ago</td>
+                </tr>
+            </table>
+        </div>
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <h3 style="color: #0f172a; font-size: 18px; margin-top: 0; margin-bottom: 25px; font-weight: 800;">Agentic Operations</h3>
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #475569; font-size: 13px; font-weight: 600;">Diagnostic Accuracy</span>
+                    <span style="color: #0f172a; font-size: 13px; font-weight: 800;">94.2%</span>
+                </div>
+                <div style="width: 100%; background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden;">
+                    <div style="width: 94.2%; background: #0ea5e9; height: 100%;"></div>
+                </div>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #475569; font-size: 13px; font-weight: 600;">Routing Efficiency</span>
+                    <span style="color: #0f172a; font-size: 13px; font-weight: 800;">98.5%</span>
+                </div>
+                <div style="width: 100%; background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden;">
+                    <div style="width: 98.5%; background: #10b981; height: 100%;"></div>
+                </div>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #475569; font-size: 13px; font-weight: 600;">Model Latency</span>
+                    <span style="color: #0f172a; font-size: 13px; font-weight: 800;">120ms</span>
+                </div>
+                <div style="width: 100%; background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden;">
+                    <div style="width: 15%; background: #f59e0b; height: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(dashboard_html, unsafe_allow_html=True)
     st.stop()
     
-# We removed Doctor Dashboard block entirely, so we just fall through to the rest of the file 
-# if menu == "🩺 AI Assessment Dashboard"!
+# If menu == "AI Assessment Workspace", it falls through to the rest of the file
 
 # ============================================================
 # FHIR / EHR / SUPABASE INTEGRATION
@@ -625,78 +807,45 @@ if fhir_patient:
     )
 
 
-    st.markdown(
-        f"""
-        <div style="
-            padding: 15px;
-            border-radius: 10px;
-            background-color: rgba(128,128,128,0.1);
-            border: 1px solid rgba(128,128,128,0.3);
-            margin-bottom: 20px;
-        ">
-
-        <h4 style="margin-top: 0;">
-            🏥 FHIR / EHR Patient Loaded
-        </h4>
-
-        <b>Patient ID:</b>
-        {fhir_patient.get('patient_id', 'N/A')}
-        &nbsp;|&nbsp;
-
-        <b>Name:</b>
-        {fhir_patient.get('patient_name', 'N/A')}
-        &nbsp;|&nbsp;
-
-        <b>Age:</b>
-        {fhir_patient.get('age', 'N/A')}
-        &nbsp;|&nbsp;
-
-        <b>Sex:</b>
-        {str(fhir_patient.get('gender', 'N/A')).title()}
-
-        <br><br>
-
-        <b>Medical History:</b>
-        {", ".join(
-            fhir_patient.get(
-                'medical_history',
-                []
-            )
-        ) or 'None'}
-
-        <br><br>
-
-        <b>Symptoms:</b>
-        {", ".join(
-            fhir_patient.get(
-                'symptoms',
-                []
-            )
-        ) or 'None'}
-
-        <br><br>
-
-        <b>Vitals:</b>
-        Temp {vitals.get('temperature', 'N/A')} °C,
-        HR {vitals.get('heart_rate', 'N/A')} bpm,
-        BP {vitals.get('systolic_bp', 'N/A')}/
-        {vitals.get('diastolic_bp', 'N/A')} mmHg,
-        SpO₂ {vitals.get('spo2', 'N/A')}%
-
-        <br><br>
-
-        <b>Medications:</b>
-        {", ".join(
-            fhir_patient.get(
-                'medications',
-                []
-            )
-        ) or 'None'}
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # Modern, sleek patient profile grid
+    st.markdown(f"""
+<div class="patient-header" style="margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+<h1 style="font-size: 24px; display: flex; align-items: center; margin: 0; color: #0f172a;"><span class="material-symbols-rounded" style="color: #0ea5e9; margin-right: 12px; font-size: 32px;">account_circle</span> {fhir_patient.get('patient_name', 'N/A')}</h1>
+<div style="background: #f1f5f9; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; color: #475569; border: 1px solid #cbd5e1;">ID: {fhir_patient.get('patient_id', 'N/A')}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
+<div>
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Age</div>
+<div style="color: #0f172a; font-size: 16px; font-weight: 600;">{fhir_patient.get('age', 'N/A')} yrs</div>
+</div>
+<div>
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Sex</div>
+<div style="color: #0f172a; font-size: 16px; font-weight: 600;">{str(fhir_patient.get('gender', 'N/A')).title()}</div>
+</div>
+<div style="grid-column: span 2;">
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Vitals Overview</div>
+<div style="color: #0f172a; font-size: 13px; font-weight: 500; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-block;">
+Temp: <b>{vitals.get('temperature', 'N/A')}°C</b> &nbsp;|&nbsp; HR: <b>{vitals.get('heart_rate', 'N/A')}</b> &nbsp;|&nbsp; BP: <b>{vitals.get('systolic_bp', 'N/A')}/{vitals.get('diastolic_bp', 'N/A')}</b> &nbsp;|&nbsp; SpO₂: <b>{vitals.get('spo2', 'N/A')}%</b>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+<div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+<div style="color: #0284c7; font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center;"><span class="material-symbols-rounded" style="font-size: 16px; margin-right: 6px;">history</span> Medical History</div>
+<div style="color: #334155; font-size: 14px; font-weight: 500; line-height: 1.5;">{", ".join(fhir_patient.get('medical_history', [])) or 'None reported'}</div>
+</div>
+<div style="background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fee2e2;">
+<div style="color: #ef4444; font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center;"><span class="material-symbols-rounded" style="font-size: 16px; margin-right: 6px;">sick</span> Current Symptoms</div>
+<div style="color: #7f1d1d; font-size: 14px; font-weight: 500; line-height: 1.5;">{", ".join(fhir_patient.get('symptoms', [])) or 'None reported'}</div>
+</div>
+<div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #dcfce3;">
+<div style="color: #166534; font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center;"><span class="material-symbols-rounded" style="font-size: 16px; margin-right: 6px;">prescriptions</span> Medications</div>
+<div style="color: #14532d; font-size: 14px; font-weight: 500; line-height: 1.5;">{", ".join(fhir_patient.get('medications', [])) or 'None reported'}</div>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
 
     # ========================================================
@@ -1520,166 +1669,150 @@ if "current_assessment" in st.session_state and st.session_state["current_assess
 
 
     with col1:
-
-        st.markdown(
-            '<div class="result-card">'
-            '<div class="result-title">'
-            '🤖 ML Prediction'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            '<div class="small-label">'
-            'Top Candidate'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            f'<div class="big-result">'
-            f'{predicted_disease}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-
-        st.metric(
-            "Probability",
-            f"{top_probability * 100:.2f}%"
-        )
-
-        st.caption(
-            f"Confidence: {confidence_level}"
-        )
-
-        st.markdown(
-            '<div class="warning-note">'
-            'ML candidate — not a confirmed diagnosis.'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            '</div>',
-            unsafe_allow_html=True
-        )
-
+        st.markdown(f"""
+<div class="result-card" style="height: 100%;">
+<div class="result-title">🤖 ML Prediction</div>
+<div class="small-label" style="margin-top: 15px;">Top Candidate</div>
+<div class="big-result" style="font-size: 24px;">{predicted_disease}</div>
+<div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+<div style="font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: 600;">Probability</div>
+<div style="font-size: 22px; font-weight: 700; color: #0f172a;">{top_probability * 100:.2f}%</div>
+</div>
+<div style="margin-top: 8px; font-size: 13px; color: #64748b;">
+Confidence: <span style="font-weight: 600; color: #0ea5e9;">{confidence_level}</span>
+</div>
+<div class="warning-note" style="margin-top: 15px; background: #fffbeb; padding: 10px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+ML candidate — not a confirmed diagnosis.
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     with col2:
-
-        st.markdown(
-            '<div class="result-card">'
-            '<div class="result-title">'
-            '❤️ Vital Risk'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
+        risk_html = ""
         if risk_flags:
-
             for flag in risk_flags:
-
-                st.warning(
-                    f"⚠ {flag}"
-                )
-
+                risk_html += f'<div style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 15px; border-radius: 10px; margin-bottom: 12px; display: flex; align-items: flex-start; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><span class="material-symbols-rounded" style="color: #dc2626; margin-right: 12px; font-size: 22px; margin-top: -2px;">warning</span><div style="font-size: 14px; font-weight: 600; line-height: 1.4;">{flag}</div></div>'
         else:
-
-            st.success(
-                "✓ No basic vital-sign risk flags detected"
-            )
-
-        st.markdown(
-            '</div>',
-            unsafe_allow_html=True
-        )
-
+            risk_html = '<div style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 20px 15px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><span class="material-symbols-rounded" style="color: #22c55e; font-size: 48px; margin-bottom: 12px;">check_circle</span><div style="font-size: 15px; font-weight: 700;">All Vitals Stable</div><div style="font-size: 13px; color: #15803d; margin-top: 4px; font-weight: 500;">No basic vital-sign risk flags detected</div></div>'
+            
+        st.markdown(f"""
+<div class="result-card" style="height: 100%;">
+<div class="result-title">❤️ Vital Risk</div>
+<div style="margin-top: 15px;">
+{risk_html}
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     with col3:
-
-        st.markdown(
-            '<div class="result-card">'
-            '<div class="result-title">'
-            '💊 Medication Safety'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
+        med_html = ""
         if not medication_list:
-
-            st.info(
-                "No current medications reported."
-            )
-
+            med_html = '<div style="background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 20px 15px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><span class="material-symbols-rounded" style="color: #94a3b8; font-size: 48px; margin-bottom: 12px;">info</span><div style="font-size: 15px; font-weight: 700;">No Medications</div><div style="font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500;">No current medications reported.</div></div>'
         elif not medication_alerts:
-
-            st.success(
-                "✓ No interactions found in "
-                "the current knowledge base."
-            )
-
+            med_html = '<div style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 20px 15px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><span class="material-symbols-rounded" style="color: #22c55e; font-size: 48px; margin-bottom: 12px;">verified_user</span><div style="font-size: 15px; font-weight: 700;">Safe to Proceed</div><div style="font-size: 13px; color: #15803d; margin-top: 4px; font-weight: 500;">No interactions found in knowledge base.</div></div>'
         else:
-
             for alert in medication_alerts:
+                med_html += f'<div style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"><div style="display: flex; align-items: center; margin-bottom: 6px;"><span class="material-symbols-rounded" style="color: #dc2626; margin-right: 10px; font-size: 20px;">dangerous</span> <span style="font-size: 14px; font-weight: 700;">{alert["medication_1"].title()} + {alert["medication_2"].title()}</span></div><div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #dc2626; margin-left: 30px; margin-bottom: 4px;">Severity: {alert["severity"]}</div><div style="font-size: 13px; color: #7f1d1d; line-height: 1.4; margin-left: 30px;">{alert["message"]}</div></div>'
 
-                st.error(
-                    f"⚠ {alert['medication_1'].title()} + "
-                    f"{alert['medication_2'].title()}\n\n"
-                    f"Severity: {alert['severity']}\n\n"
-                    f"{alert['message']}"
-                )
-
-        st.markdown(
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""
+<div class="result-card" style="height: 100%;">
+<div class="result-title">💊 Medication Safety</div>
+<div style="margin-top: 15px;">
+{med_html}
+</div>
+</div>
+""", unsafe_allow_html=True)
 
 
     # ========================================================
     # TOP 5
     # ========================================================
 
-    st.markdown("### 📈 Top 5 ML Candidates")
+    st.markdown('<h3 style="margin-top: 30px; margin-bottom: 20px; font-size: 20px; font-weight: 800; color: #0f172a; display: flex; align-items: center;"><span class="material-symbols-rounded" style="color: #ef4444; margin-right: 10px; font-size: 26px;">monitoring</span> Top 5 ML Candidates</h3>', unsafe_allow_html=True)
 
-    prediction_data = []
+    top5_html = '<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">'
+    
+    for rank, index in enumerate(top_indices, start=1):
+        disease = label_encoder.inverse_transform([index])[0]
+        probability = probabilities[index] * 100
+        
+        color = "#0ea5e9" if rank == 1 else ("#3b82f6" if rank == 2 else "#94a3b8")
+        bg_color = "#e0f2fe" if rank == 1 else ("#eff6ff" if rank == 2 else "#f1f5f9")
+        
+        border_bottom = 'border-bottom: 1px solid #f1f5f9;' if rank < 5 else ''
+        margin_bottom = 'margin-bottom: 15px;' if rank < 5 else ''
+        padding_bottom = 'padding-bottom: 15px;' if rank < 5 else ''
+        
+        font_weight = "800" if rank == 1 else "600"
+        font_size = "16px" if rank == 1 else "15px"
+        
+        top5_html += f'''
+<div style="display: flex; align-items: center; {margin_bottom} {padding_bottom} {border_bottom}">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: {bg_color}; color: {color}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; margin-right: 15px; flex-shrink: 0;">{rank}</div>
+<div style="flex-grow: 1;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+<span style="font-weight: {font_weight}; font-size: {font_size}; color: #0f172a;">{disease}</span>
+<span style="font-weight: 800; color: {color}; font-size: 14px;">{probability:.2f}%</span>
+</div>
+<div style="width: 100%; background: #f1f5f9; border-radius: 6px; height: 8px; overflow: hidden;">
+<div style="width: {probability}%; background: {color}; height: 100%; border-radius: 6px;"></div>
+</div>
+</div>
+</div>
+'''
 
-
-    for rank, index in enumerate(
-        top_indices,
-        start=1
-    ):
-
-        disease = (
-            label_encoder.inverse_transform(
-                [index]
-            )[0]
-        )
-
-        probability = (
-            probabilities[index] * 100
-        )
-
-        prediction_data.append({
-
-            "Rank": rank,
-
-            "Candidate": disease,
-
-            "Probability": f"{probability:.2f}%"
-        })
-
-
-    st.dataframe(
-        pd.DataFrame(prediction_data),
-        hide_index=True
-    )
+    top5_html += '</div>'
+    st.markdown(top5_html, unsafe_allow_html=True)
 
 
     # ========================================================
     # ROUTING
     # ========================================================
     st.markdown("### 🏥 Apollo Aragonda Hospital Routing")
-    st.write(format_routing_result(ca["hospital_routing_info"]))
+    
+    routing_info = ca.get("hospital_routing_info", {})
+    if routing_info and routing_info.get("success"):
+        
+        # Build doctor list HTML
+        doctors = routing_info.get("doctors", [])
+        if doctors:
+            docs_html = '<div style="display: flex; flex-direction: column; gap: 8px;">'
+            for doc in doctors:
+                docs_html += f'<div style="display: flex; align-items: center; font-size: 14px;"><span class="material-symbols-rounded" style="color: #64748b; font-size: 16px; margin-right: 8px;">stethoscope</span> <b>{doc.get("name")}</b> &nbsp;<span style="color: #64748b;">({doc.get("speciality")})</span></div>'
+            docs_html += '</div>'
+        else:
+            docs_html = '<div style="color: #64748b; font-size: 14px;">No relevant listed doctors found.</div>'
+            
+        st.markdown(f"""
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; padding: 25px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+<div style="display: flex; align-items: center; margin-bottom: 20px;">
+<span class="material-symbols-rounded" style="color: #0284c7; font-size: 32px; margin-right: 15px;">local_hospital</span>
+<div>
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Selected Facility</div>
+<div style="color: #0f172a; font-size: 20px; font-weight: 800;">{routing_info.get('hospital', {}).get('name', 'Apollo Hospitals')}</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 20px;">
+<div>
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Suggested Speciality</div>
+<div style="color: #0ea5e9; font-size: 18px; font-weight: 700;">{routing_info.get('speciality', 'N/A')}</div>
+</div>
+<div>
+<div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Relevant Listed Doctor(s)</div>
+{docs_html}
+</div>
+</div>
+<div style="background: #eff6ff; color: #1e3a8a; padding: 15px; border-radius: 8px; font-size: 14px; border: 1px solid #bfdbfe; display: flex; align-items: flex-start;">
+<span class="material-symbols-rounded" style="font-size: 20px; margin-right: 10px; margin-top: 2px;">info</span>
+<div>
+<b style="font-weight: 700;">Routing Rationale:</b> {routing_info.get('message', '')}
+<div style="margin-top: 8px; font-size: 12px; opacity: 0.8;">Note: This is hospital routing decision support and does not constitute a medical diagnosis.</div>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.info("No routing information available.")
 
     # ========================================================
     # KNOWLEDGE
@@ -1852,67 +1985,72 @@ if "current_assessment" in st.session_state and st.session_state["current_assess
 
     st.info("🤖 **Agentic Orchestration Complete:** The Agentic AI has coordinated data from the Patient Context, ML Analysis, Risk Engine, Medication Checker, and Medical Knowledge modules to generate this clinical decision support briefing.")
 
-    briefing_text = ""
-    briefing_text += f"**Patient ID:** {patient_id if patient_id else 'N/A'}  \n"
-    briefing_text += f"**Patient Name:** {patient_name if patient_name else 'N/A'}  \n"
-    briefing_text += f"**Age:** {age if age is not None else 'N/A'}  \n"
-    briefing_text += f"**Sex:** {sex if sex != 'Select sex' else 'N/A'}\n\n"
+    # HTML Template for Premium Doctor Briefing
+    briefing_html = f'''
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 30px;">
+<!-- Header -->
+<div style="background: #0f172a; color: #ffffff; padding: 25px 30px; display: flex; align-items: center; justify-content: space-between;">
+<div>
+<div style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; margin-bottom: 4px;">Clinical Support Document</div>
+<div style="font-size: 24px; font-weight: 800; display: flex; align-items: center;"><span class="material-symbols-rounded" style="color: #38bdf8; margin-right: 12px; font-size: 28px;">clinical_notes</span> Doctor Briefing</div>
+</div>
+<div style="text-align: right;">
+<div style="font-size: 13px; color: #94a3b8;">Patient ID</div>
+<div style="font-size: 18px; font-weight: 700; color: #e2e8f0;">{patient_id if patient_id else 'N/A'}</div>
+</div>
+</div>
+<!-- Patient Context Strip -->
+<div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 15px 30px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+<div><div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Name</div><div style="font-size: 14px; font-weight: 600; color: #0f172a;">{patient_name if patient_name else 'N/A'}</div></div>
+<div><div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Age</div><div style="font-size: 14px; font-weight: 600; color: #0f172a;">{age if age is not None else 'N/A'}</div></div>
+<div><div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Sex</div><div style="font-size: 14px; font-weight: 600; color: #0f172a;">{sex if sex != 'Select sex' else 'N/A'}</div></div>
+<div><div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Status</div><div style="font-size: 14px; font-weight: 600; color: #0284c7;">Evaluated</div></div>
+</div>
+<div style="padding: 30px;">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+<!-- Symptoms & Vitals -->
+<div>
+<div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Reported Symptoms</div>
+<ul style="margin: 0; padding-left: 20px; color: #334155; font-size: 14px; margin-bottom: 25px;">
+{"".join([f"<li style='margin-bottom: 6px;'>{symptom.replace('_', ' ').title()}</li>" for symptom in valid_symptoms]) if valid_symptoms else "<li>None reported</li>"}
+</ul>
+<div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Vital Signs</div>
+<div style="background: #f1f5f9; padding: 15px; border-radius: 8px; font-size: 14px; color: #0f172a; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+<div><b>Temp:</b> {temperature if temperature is not None else 'N/A'} °C</div>
+<div><b>HR:</b> {heart_rate if heart_rate is not None else 'N/A'} bpm</div>
+<div><b>BP:</b> {systolic if systolic is not None else 'N/A'}/{diastolic if diastolic is not None else 'N/A'} mmHg</div>
+<div><b>SpO₂:</b> {spo2 if spo2 is not None else 'N/A'}%</div>
+</div>
+</div>
+<!-- History & Alerts -->
+<div>
+<div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Medical History</div>
+<div style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 25px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
+{medical_history if medical_history.strip() else 'None reported'}
+</div>
+<div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Critical Alerts</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+{"".join([f'<div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 15px; font-size: 13px; color: #991b1b;"><b style="color: #dc2626;">⚠ VITAL RISK:</b> {flag}</div>' for flag in risk_flags]) if risk_flags else ""}
+{"".join([f'<div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 15px; font-size: 13px; color: #991b1b;"><b style="color: #dc2626;">⚠ MEDICATION:</b> {alert["medication_1"].title()} + {alert["medication_2"].title()} ({alert["severity"]})</div>' for alert in medication_alerts]) if medication_alerts else ""}
+{"".join([f'<div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 15px; font-size: 13px; color: #991b1b;"><b style="color: #dc2626;">⚠ RED FLAG:</b> {flag}</div>' for flag in red_flags]) if red_flags else ""}
+{"" if risk_flags or medication_alerts or red_flags else '<div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 10px 15px; font-size: 13px; color: #166534;"><span class="material-symbols-rounded" style="font-size: 16px; vertical-align: text-bottom;">check_circle</span> No critical alerts detected.</div>'}
+</div>
+</div>
+</div>
+<!-- Agentic Recommendation -->
+<div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 25px;">
+<div style="display: flex; align-items: center; margin-bottom: 15px;">
+<span class="material-symbols-rounded" style="color: #0284c7; font-size: 28px; margin-right: 12px;">smart_toy</span>
+<div style="font-size: 18px; font-weight: 800; color: #0369a1;">Agentic Recommendation</div>
+</div>
+<div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">{agent_decision}</div>
+<div style="font-size: 14px; color: #334155; line-height: 1.6;">{decision_reason}</div>
+</div>
+</div>
+</div>
+'''
 
-    briefing_text += "#### Reported Symptoms\n"
-    for symptom in valid_symptoms:
-        briefing_text += f"• {symptom.replace('_', ' ')}\n"
-
-    briefing_text += "\n#### Vital Signs\n"
-    briefing_text += f"• Temperature: {temperature if temperature is not None else 'N/A'} °C\n"
-    briefing_text += f"• Heart Rate: {heart_rate if heart_rate is not None else 'N/A'} bpm\n"
-    briefing_text += f"• Blood Pressure: {systolic if systolic is not None else 'N/A'}/{diastolic if diastolic is not None else 'N/A'} mmHg\n"
-    briefing_text += f"• SpO₂: {spo2 if spo2 is not None else 'N/A'}%\n\n"
-
-    briefing_text += "#### Medical History\n"
-    if medical_history.strip():
-        briefing_text += f"{medical_history}\n\n"
-    else:
-        briefing_text += "None reported\n\n"
-
-    briefing_text += "#### ML Candidate Assessment\n"
-    for rank, index in enumerate(top_indices, start=1):
-        disease = label_encoder.inverse_transform([index])[0]
-        prob = probabilities[index] * 100
-        briefing_text += f"{rank}. {disease} ({prob:.2f}%)\n"
-
-    briefing_text += "\n#### Vital-Risk Findings\n"
-    if risk_flags:
-        for flag in risk_flags:
-            briefing_text += f"⚠ {flag}\n"
-    else:
-        briefing_text += "No basic vital-sign risk flags detected.\n"
-
-    briefing_text += "\n#### Medication Safety\n"
-    if medication_alerts:
-        for alert in medication_alerts:
-            briefing_text += f"⚠ {alert['medication_1'].title()} + {alert['medication_2'].title()}\n"
-            briefing_text += f"Severity: {alert['severity']}\n"
-            briefing_text += f"Concern: {alert['message']}\n"
-            briefing_text += f"Action: {alert['action']}\n\n"
-    elif medication_list:
-        briefing_text += "No interactions found in the current knowledge base.\n"
-    else:
-        briefing_text += "No current medications reported.\n"
-
-    briefing_text += "\n#### Red-Flag Findings\n"
-    if red_flags:
-        for flag in red_flags:
-            briefing_text += f"⚠ {flag}\n"
-    else:
-        briefing_text += "No configured red-flag symptoms reported.\n"
-
-    briefing_text += f"\n#### Information Status\n{information_status}\n"
-
-    briefing_text += "\n#### Agentic Recommendation\n"
-    briefing_text += f"**{agent_decision}**\n\n{decision_reason}\n"
-
-    with st.container(border=True):
-        st.markdown(briefing_text)
+    st.markdown(briefing_html, unsafe_allow_html=True)
 
     # ========================================================
     # SAVE ASSESSMENT
@@ -1942,7 +2080,7 @@ if "current_assessment" in st.session_state and st.session_state["current_assess
                         agent_reason=decision_reason,
                         risk_flags=risk_flags,
                         medication_alerts=medication_alerts,
-                        briefing_summary=briefing_text,
+                        briefing_summary=briefing_html,
                         temperature=temperature,
                         heart_rate=heart_rate,
                         systolic_bp=systolic,

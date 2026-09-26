@@ -32,39 +32,171 @@ if __name__ == "__main__":
 # ============================================================
 # CUSTOM CSS
 # ============================================================
+
+
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-    .patient-header { background: linear-gradient(135deg, rgba(128, 128, 128, 0.05) 0%, rgba(128, 128, 128, 0.02) 100%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; margin-bottom: 30px; border: 1px solid rgba(128,128,128,0.2); color: var(--text-color); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .patient-header h1 { margin: 0; font-size: 36px; font-weight: 800; font-family: 'Inter', sans-serif; }
-    .patient-header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.95; font-family: 'Inter', sans-serif; }
-    .card-container { background-color: var(--secondary-background-color); border-radius: 16px; padding: 30px; margin-bottom: 25px; border: 1px solid rgba(128,128,128,0.2); }
-    .metric-card { text-align: center; padding: 25px 20px; background-color: var(--secondary-background-color); border-radius: 16px; border: 1px solid rgba(128,128,128,0.2); border-top: 4px solid var(--primary-color, #00a8e8); transition: transform 0.3s ease, box-shadow 0.3s ease; height: 100%; }
-    .metric-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .metric-title { color: var(--text-color); opacity: 0.7; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .metric-value { color: var(--text-color); font-size: 28px; font-weight: 800; }
-    .disclaimer-box { background-color: rgba(255, 193, 7, 0.15); color: var(--text-color); padding: 20px; border-radius: 12px; border-left: 5px solid #ffc107; margin: 20px 0; }
-    .doctor-box { background-color: rgba(0, 188, 212, 0.15); padding: 25px; border-radius: 12px; border-left: 5px solid #00bcd4; margin-bottom: 20px; color: var(--text-color); }
-    .ai-box { background: linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(103, 58, 183, 0.1) 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #9c27b0; margin-bottom: 20px; color: var(--text-color); }
-    .section-title { color: var(--text-color); border-bottom: 2px solid rgba(128,128,128,0.2); padding-bottom: 15px; margin-bottom: 30px; font-weight: 800; font-family: 'Inter', sans-serif; font-size: 24px; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 8px; margin-bottom: 5px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: rgba(128,128,128,0.1); }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: rgba(0, 123, 255, 0.15); border-left: 4px solid #007bff; border-radius: 0 8px 8px 0; }
-    .sidebar-profile { background-color: rgba(128,128,128,0.1); padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid rgba(128,128,128,0.2); }
-    .sidebar-profile h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-color); font-family: 'Inter', sans-serif; }
-    .sidebar-profile p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.8; color: var(--text-color); font-family: 'Inter', sans-serif; }
-    .badge-waiting { background-color: rgba(255,193,7,0.2); color: #b8860b; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
-    .badge-completed { background-color: rgba(40,167,69,0.2); color: #28a745; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
-    .badge-in-consult { background-color: rgba(0,123,255,0.2); color: #007bff; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
-    .workspace-section { background-color: var(--secondary-background-color); border: 1px solid rgba(128,128,128,0.2); border-radius: 10px; padding: 20px; margin-bottom: 25px; }
-    .workspace-title { border-bottom: 2px solid rgba(128,128,128,0.1); font-weight: 600; padding-bottom: 10px; margin-bottom: 15px; font-weight: 600; font-size: 18px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
-    /* Internal nav styling */
-    .inner-nav-container div[role="radiogroup"] > label > div:first-child { display: none; }
-    .inner-nav-container div[role="radiogroup"] > label { padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; background-color: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.1); transition: all 0.2s ease; cursor: pointer; }
-    .inner-nav-container div[role="radiogroup"] > label:hover { background-color: rgba(128,128,128,0.1); }
-    .inner-nav-container div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: rgba(40, 167, 69, 0.15); border-left: 4px solid #28a745; border-radius: 0 8px 8px 0; }
+    html, body, div, p, a, h1, h2, h3, h4, h5, h6, label, button, input, select, textarea, table, th, td {
+        font-family: 'Inter', sans-serif !important;
+    }
+    
+    [data-testid*="Icon"], [data-testid*="icon"], [class*="icon"], [class*="Icon"], .stIcon, svg, i, .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+    }
+    
+    .stApp { background-color: #f8fafc; }
+    
+    /* Clean Top Spacing */
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stSidebarHeader"] { display: none !important; }
+    .block-container { padding-top: 2.5rem !important; padding-bottom: 2rem !important; max-width: 1400px !important; }
+    [data-testid="stSidebarUserContent"], [data-testid="stSidebar"] > div:first-child { padding-top: 2.5rem !important; margin-top: 0 !important; }
+    
+    /* Clean headers */
+    .main-title {
+        color: #0f172a;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 8px;
+    }
+    .main-subtitle {
+        color: #64748b;
+        font-size: 16px;
+        font-weight: 400;
+        margin-bottom: 30px;
+    }
+    
+    .patient-header, .section-title {
+        color: #0f172a !important;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        font-weight: 700;
+    }
+    
+    .patient-header {
+        background-color: #ffffff;
+        padding: 25px 30px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #0284c7;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+    
+    .patient-header h1 { font-size: 28px; margin: 0; font-weight: 800; color: #0f172a; border: none; }
+    .patient-header p { font-size: 15px; color: #64748b; margin-top: 5px; }
+    
+    .section-header { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        border-top: 4px solid #0284c7;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .metric-value, .big-result { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 15px; }
+    
+    /* Native Streamlit Metric Cards */
+    div[data-testid="metric-container"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border-color: #cbd5e1;
+    }
+    div[data-testid="metric-container"] label {
+        color: #64748b !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color: #0f172a !important;
+        font-size: 32px !important;
+        font-weight: 800 !important;
+    }
+    
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #fefce8; border-left: 4px solid #eab308; padding: 15px; border-radius: 8px; color: #854d0e; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; border-radius: 8px; color: #0369a1; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #f8fafc; border-left: 4px solid #475569; padding: 15px; border-radius: 8px; color: #334155; font-size: 14px; margin-bottom: 15px; }
+    
+    .warning-note { font-size: 13px; color: #b45309; }
+    .workspace-title { font-size: 18px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* ---------------- DARK SIDEBAR ---------------- */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important; /* Deep Slate */
+        border-right: 1px solid #1e293b !important;
+    }
+    .sidebar-title { color: #64748b !important; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 0 !important; margin-bottom: 12px !important; padding-left: 28px !important; margin-left: 0 !important; }
+    .status-ok { display: flex; align-items: center; font-size: 13px; color: #94a3b8; font-weight: 500; margin-bottom: 8px; }
+    .status-dot { width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; margin-right: 10px; }
+    
+    /* Sidebar Radio to Premium Dark Pills */
+    [data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child { display: none !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label {
+        padding: 12px 12px !important;
+        margin-left: 16px !important;
+        margin-right: 16px !important;
+        width: calc(100% - 32px) !important;
+        border-radius: 8px !important;
+        margin-bottom: 4px !important;
+        background-color: transparent !important;
+        border: 1px solid transparent !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"],
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, #0284c7 0%, #0369a1 100%) !important;
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+        color: #94a3b8 !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] p,
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Badges */
+    .badge-waiting { background-color: #fefce8; color: #854d0e; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #fde047; }
+    .badge-completed { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #86efac; }
+    .badge-in-consult { background-color: #e0f2fe; color: #075985; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #7dd3fc; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -137,6 +269,7 @@ if menu == "👨‍⚕️ Dr. Profile":
     if st.button("🚪 Logout"):
         st.session_state["authenticated"] = False
         st.session_state["user_role"] = None
+        st.query_params.clear()
         st.session_state["doctor_selected_patient_code"] = None
         st.session_state["doctor_selected_patient_uuid"] = None
         st.session_state["doctor_selected_encounter_id"] = None
@@ -174,11 +307,27 @@ if menu == "🏠 Dashboard":
     all_fups = [v.get("follow_up_date") for v in (visits_res.data or []) if v.get("follow_up_date") and v.get("follow_up_date") > today_str]
     fups_count = len(all_fups)
     
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.markdown(f'<div class="metric-card"><div class="metric-title">Today\'s Encounters</div><div class="metric-value">{total_tp}</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="metric-card"><div class="metric-title">Completed Visits</div><div class="metric-value">{completed}</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class="metric-card"><div class="metric-title">Waiting</div><div class="metric-value">{waiting}</div></div>', unsafe_allow_html=True)
-    with col4: st.markdown(f'<div class="metric-card"><div class="metric-title">Upcoming Follow-ups</div><div class="metric-value">{fups_count}</div></div>', unsafe_allow_html=True)
+    dashboard_html = f"""
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;">
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Today's Encounters</div>
+        <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1;">{total_tp}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Completed Visits</div>
+        <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1;">{completed}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Waiting</div>
+        <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1; color: #f59e0b;">{waiting}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Upcoming Follow-ups</div>
+        <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1; color: #0ea5e9;">{fups_count}</div>
+    </div>
+</div>
+"""
+    st.markdown(dashboard_html, unsafe_allow_html=True)
 
     st.markdown("<br><hr>", unsafe_allow_html=True)
     st.info("Select '👥 Today's Patients' from the sidebar to begin consultations.")

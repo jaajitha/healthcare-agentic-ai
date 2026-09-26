@@ -3,172 +3,177 @@ import pandas as pd
 import json
 
 from src.services.supabase_client import (
+    supabase,
     get_patient_profile,
-    get_patient_observations,
-    get_patient_risk_flags,
-    get_patient_medication_alerts,
     get_assessment_history_by_uuid,
-    supabase
+    get_patient_risk_flags,
+    get_patient_medication_alerts
 )
-
 from src.fhir.parser import _load_fhir_database
 
-# ============================================================
-# PAGE CONFIG
-# ============================================================
-
-if __name__ == "__main__":
-    st.set_page_config(
-        page_title="Patient Dashboard - Apollo Hospitals",
-        page_icon="👤",
-        layout="wide"
-    )
-
-# ============================================================
-# CUSTOM CSS FOR PROFESSIONAL HEALTHCARE PORTAL
-# ============================================================
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
 <style>
-    /* Premium, Theme-Aware Medical Portal UI */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-
-    .patient-header {
-        background: linear-gradient(135deg, rgba(0, 86, 179, 0.7) 0%, rgba(0, 168, 232, 0.7) 100%);
-        padding: 40px;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.1);
-        margin-bottom: 30px;
-        color: white;
-    }
-    .patient-header h1 {
-        margin: 0;
-        font-size: 36px;
-        font-weight: 800;
-        font-family: 'Inter', sans-serif;
-    }
-    .patient-header p {
-        margin: 10px 0 0 0;
-        font-size: 16px;
-        opacity: 0.95;
-        font-family: 'Inter', sans-serif;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, div, p, a, h1, h2, h3, h4, h5, h6, label, button, input, select, textarea, table, th, td {
+        font-family: 'Inter', sans-serif !important;
     }
     
-    .card-container {
-        background-color: var(--secondary-background-color);
-        border-radius: 16px;
-        padding: 30px;
+    [data-testid*="Icon"], [data-testid*="icon"], [class*="icon"], [class*="Icon"], .stIcon, svg, i, .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+    }
+    
+    .stApp { background-color: #f8fafc; }
+    
+    /* Clean Top Spacing */
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stSidebarHeader"] { display: none !important; }
+    .block-container { padding-top: 2.5rem !important; padding-bottom: 2rem !important; max-width: 1400px !important; }
+    [data-testid="stSidebarUserContent"], [data-testid="stSidebar"] > div:first-child { padding-top: 2.5rem !important; margin-top: 0 !important; }
+    
+    /* Clean headers */
+    .main-title {
+        color: #0f172a;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 8px;
+    }
+    .main-subtitle {
+        color: #64748b;
+        font-size: 16px;
+        font-weight: 400;
+        margin-bottom: 30px;
+    }
+    
+    .patient-header, .section-title {
+        color: #0f172a !important;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 10px;
         margin-bottom: 25px;
-        border: 1px solid rgba(128,128,128,0.2);
+        font-weight: 700;
+    }
+    
+    .patient-header {
+        background-color: #ffffff;
+        padding: 25px 30px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #0284c7;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+    
+    .patient-header h1 { font-size: 28px; margin: 0; font-weight: 800; color: #0f172a; border: none; }
+    .patient-header p { font-size: 15px; color: #64748b; margin-top: 5px; }
+    
+    .section-header { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
     }
     
     .metric-card {
+        border-top: 4px solid #0284c7;
         text-align: center;
-        padding: 25px 20px;
-        background-color: var(--secondary-background-color);
-        border-radius: 16px;
-        border: 1px solid rgba(128,128,128,0.2);
-        border-top: 4px solid var(--primary-color, #00a8e8);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        height: 100%;
+        transition: transform 0.2s ease;
     }
-    .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .metric-value, .big-result { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 15px; }
+    
+    /* Native Streamlit Metric Cards */
+    div[data-testid="metric-container"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .metric-title {
-        color: var(--text-color);
-        opacity: 0.7;
-        font-size: 14px;
-        font-weight: 600;
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border-color: #cbd5e1;
+    }
+    div[data-testid="metric-container"] label {
+        color: #64748b !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 12px;
     }
-    .metric-value {
-        color: var(--text-color);
-        font-size: 28px;
-        font-weight: 800;
-    }
-    
-    .disclaimer-box {
-        background-color: rgba(255, 193, 7, 0.15);
-        color: var(--text-color);
-        padding: 20px;
-        border-radius: 12px;
-        border-left: 5px solid #ffc107;
-        margin: 20px 0;
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color: #0f172a !important;
+        font-size: 32px !important;
+        font-weight: 800 !important;
     }
     
-    .doctor-box {
-        background-color: rgba(0, 188, 212, 0.15);
-        padding: 25px;
-        border-radius: 12px;
-        border-left: 5px solid #00bcd4;
-        margin-bottom: 20px;
-        color: var(--text-color);
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #fefce8; border-left: 4px solid #eab308; padding: 15px; border-radius: 8px; color: #854d0e; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; border-radius: 8px; color: #0369a1; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #f8fafc; border-left: 4px solid #475569; padding: 15px; border-radius: 8px; color: #334155; font-size: 14px; margin-bottom: 15px; }
+    
+    .warning-note { font-size: 13px; color: #b45309; }
+    .workspace-title { font-size: 18px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* ---------------- DARK SIDEBAR ---------------- */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a !important; /* Deep Slate */
+        border-right: 1px solid #1e293b !important;
+    }
+    .sidebar-title { color: #64748b !important; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 0 !important; margin-bottom: 12px !important; padding-left: 28px !important; margin-left: 0 !important; }
+    .status-ok { display: flex; align-items: center; font-size: 13px; color: #94a3b8; font-weight: 500; margin-bottom: 8px; }
+    .status-dot { width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; margin-right: 10px; }
+    
+    /* Sidebar Radio to Premium Dark Pills */
+    [data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child { display: none !important; }
+    [data-testid="stSidebar"] div[role="radiogroup"] label {
+        padding: 12px 12px !important;
+        margin-left: 16px !important;
+        margin-right: 16px !important;
+        width: calc(100% - 32px) !important;
+        border-radius: 8px !important;
+        margin-bottom: 4px !important;
+        background-color: transparent !important;
+        border: 1px solid transparent !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"],
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, #0284c7 0%, #0369a1 100%) !important;
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2) !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+        color: #94a3b8 !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] p,
+    [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 600 !important;
     }
     
-    .ai-box {
-        background: linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(103, 58, 183, 0.1) 100%);
-        padding: 25px;
-        border-radius: 12px;
-        border-left: 5px solid #9c27b0;
-        margin-bottom: 20px;
-        color: var(--text-color);
-    }
-    
-    .section-title {
-        color: var(--text-color);
-        border-bottom: 2px solid rgba(128,128,128,0.2);
-        padding-bottom: 15px;
-        margin-bottom: 30px;
-        font-weight: 800;
-        font-family: 'Inter', sans-serif;
-        font-size: 24px;
-    }
-    
-    /* Sidebar styling for a professional menu */
-    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
-        display: none;
-    }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label {
-        padding: 10px 15px;
-        border-radius: 8px;
-        margin-bottom: 5px;
-        background-color: transparent;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-        background-color: rgba(128,128,128,0.1);
-    }
-    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] {
-        background-color: rgba(0, 123, 255, 0.15);
-        border-left: 4px solid #007bff;
-        border-radius: 0 8px 8px 0;
-    }
-    .sidebar-profile {
-        background-color: rgba(128,128,128,0.1);
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 25px;
-        border: 1px solid rgba(128,128,128,0.2);
-    }
-    .sidebar-profile h3 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--text-color);
-        font-family: 'Inter', sans-serif;
-    }
-    .sidebar-profile p {
-        margin: 5px 0 0 0;
-        font-size: 14px;
-        opacity: 0.8;
-        color: var(--text-color);
-        font-family: 'Inter', sans-serif;
-    }
-
+    /* Badges */
+    .badge-waiting { background-color: #fefce8; color: #854d0e; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #fde047; }
+    .badge-completed { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #86efac; }
+    .badge-in-consult { background-color: #e0f2fe; color: #075985; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid #7dd3fc; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -271,8 +276,6 @@ if menu == "🏠 Dashboard":
     </div>
     ''', unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns(4)
-    
     current_care = latest_visit.get("diagnosis") if latest_visit and latest_visit.get("diagnosis") else "No active diagnosis"
     last_visit_date = latest_visit.get("visit_date") if latest_visit else "No recent visits"
     
@@ -284,14 +287,27 @@ if menu == "🏠 Dashboard":
         
     med_count = str(len(doctor_medications))
     
-    with col1:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Current Care Status</div><div class="metric-value">{current_care}</div></div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Last Doctor Visit</div><div class="metric-value">{last_visit_date}</div></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Next Follow-up</div><div class="metric-value" style="font-size: 18px;">{follow_up_display}</div></div>', unsafe_allow_html=True)
-    with col4:
-        st.markdown(f'<div class="metric-card"><div class="metric-title">Current Medicines</div><div class="metric-value">{med_count}</div></div>', unsafe_allow_html=True)
+    dashboard_html = f"""
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;">
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Current Care Status</div>
+        <div style="color: #0f172a; font-size: 20px; font-weight: 800; line-height: 1.2;">{current_care}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Last Doctor Visit</div>
+        <div style="color: #0f172a; font-size: 24px; font-weight: 800; line-height: 1.2;">{last_visit_date}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Next Follow-up</div>
+        <div style="color: #0f172a; font-size: 24px; font-weight: 800; line-height: 1.2; color: #f59e0b;">{follow_up_display}</div>
+    </div>
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Current Medicines</div>
+        <div style="color: #0f172a; font-size: 36px; font-weight: 800; line-height: 1.2; color: #0ea5e9;">{med_count}</div>
+    </div>
+</div>
+"""
+    st.markdown(dashboard_html, unsafe_allow_html=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     
@@ -414,19 +430,86 @@ elif menu == "📅 Medical History":
                 <meta charset="UTF-8">
                 <title>Medical Report - {patient_profile.get('patient_name')}</title>
                 <style>
-                    body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 40px; color: #333; line-height: 1.6; }}
-                    .header {{ border-bottom: 4px solid #0056b3; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }}
-                    .header-left h1 {{ margin: 0; color: #0056b3; font-size: 32px; font-weight: 800; }}
-                    .header-left p {{ margin: 5px 0 0 0; color: #666; font-size: 14px; }}
-                    .header-right {{ text-align: right; color: #666; font-size: 13px; }}
-                    h2 {{ color: #0056b3; font-size: 22px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; margin-top: 40px; }}
-                    .patient-info {{ background: #f8f9fa; padding: 25px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #e9ecef; }}
-                    .patient-info p {{ margin: 8px 0; font-size: 15px; }}
-                    .visit-block {{ background: #fff; border: 1px solid #e9ecef; border-left: 5px solid #17a2b8; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }}
-                    .visit-block h4 {{ margin-top: 0; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }}
-                    .visit-block p {{ margin: 8px 0; }}
-                    .footer {{ margin-top: 60px; font-size: 13px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }}
-                </style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * { font-family: 'Inter', sans-serif !important; }
+    
+    .stApp { background-color: #F8F9FA; }
+    
+    /* Clean headers */
+    .patient-header, .main-title, .section-title {
+        color: #0056b3 !important;
+        border-bottom: 2px solid #E3F2FD;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        font-weight: 700;
+    }
+    
+    .patient-header {
+        background-color: #FFFFFF;
+        padding: 25px 30px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        border-left: 6px solid #0056b3;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .patient-header h1 { font-size: 32px; margin: 0; font-weight: 800; color: #212529; border: none; }
+    .patient-header p { font-size: 15px; color: #6c757d; margin-top: 5px; }
+    
+    .main-subtitle { font-size: 16px; color: #6c757d; font-weight: 400; text-align: center; margin-bottom: 25px; }
+    .section-header { font-size: 20px; font-weight: 700; color: #0056b3; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #FFFFFF;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        border-top: 4px solid #0056b3;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #6c757d; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+    .metric-value, .big-result { font-size: 26px; font-weight: 700; color: #212529; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #495057; margin-bottom: 15px; }
+    
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 15px; border-radius: 6px; color: #856404; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #E3F2FD; border-left: 4px solid #0D6EFD; padding: 15px; border-radius: 6px; color: #004085; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #E2E3E5; border-left: 4px solid #383D41; padding: 15px; border-radius: 6px; color: #383D41; font-size: 14px; margin-bottom: 15px; }
+    
+    .status-ok { font-size: 14px; margin: 5px 0; font-weight: 600; color: #198754; }
+    .warning-note { font-size: 13px; color: #856404; }
+    .workspace-title { font-size: 18px; font-weight: 600; color: #212529; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* Sidebar / Menus */
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; border: 1px solid transparent; transition: 0.2s; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: #f8f9fa; border-color: #dee2e6; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #E3F2FD; border: 1px solid #90CAF9; color: #0056b3; font-weight: 600; }
+    
+    .sidebar-profile { background-color: #F8F9FA; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 20px; }
+    .sidebar-profile h3 { margin: 0; font-size: 16px; color: #212529; font-weight: 600; }
+    .sidebar-profile p { margin: 5px 0 0 0; font-size: 13px; color: #6c757d; }
+    
+    /* Inner nav styling (doctor_dashboard) */
+    .inner-nav-container div[role="radiogroup"] > label > div:first-child { display: none; }
+    .inner-nav-container div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; background-color: #f8f9fa; border: 1px solid #dee2e6; cursor: pointer; }
+    .inner-nav-container div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #D4EDDA; border-color: #198754; color: #155724; font-weight: 600; }
+    
+    /* Badges */
+    .badge-waiting { background-color: #FFF3CD; color: #856404; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-completed { background-color: #D4EDDA; color: #155724; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-in-consult { background-color: #CCE5FF; color: #004085; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+</style>
             </head>
             <body>
                 <div class="header">
@@ -606,49 +689,86 @@ elif menu == "👤 My Profile":
     
     # Custom CSS for Profile Page
     st.markdown("""<style>
-    .profile-header {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        margin-bottom: 30px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * { font-family: 'Inter', sans-serif !important; }
+    
+    .stApp { background-color: #F8F9FA; }
+    
+    /* Clean headers */
+    .patient-header, .main-title, .section-title {
+        color: #0056b3 !important;
+        border-bottom: 2px solid #E3F2FD;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+        font-weight: 700;
     }
-    .profile-avatar {
-        background: linear-gradient(135deg, #007bb5, #00bcd4);
-        width: 100px;
-        height: 100px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 40px;
-        color: white;
-        box-shadow: 0 10px 20px rgba(0, 188, 212, 0.3);
+    
+    .patient-header {
+        background-color: #FFFFFF;
+        padding: 25px 30px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        border-left: 6px solid #0056b3;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    .profile-info h3 {
-        margin: 0 0 5px 0;
-        font-size: 28px;
-        font-weight: 800;
-        color: var(--text-color);
-    }
-    .profile-info p {
-        margin: 0;
-        opacity: 0.8;
-        font-size: 16px;
-    }
-    .essential-card {
-        background: rgba(128, 128, 128, 0.05);
-        border: 1px solid rgba(128, 128, 128, 0.2);
+    
+    .patient-header h1 { font-size: 32px; margin: 0; font-weight: 800; color: #212529; border: none; }
+    .patient-header p { font-size: 15px; color: #6c757d; margin-top: 5px; }
+    
+    .main-subtitle { font-size: 16px; color: #6c757d; font-weight: 400; text-align: center; margin-bottom: 25px; }
+    .section-header { font-size: 20px; font-weight: 700; color: #0056b3; margin-top: 20px; margin-bottom: 15px; }
+    
+    /* Clean Cards */
+    .card-container, .metric-card, .workspace-section, .result-card {
+        background-color: #FFFFFF;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
         padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        border-left: 4px solid #00bcd4;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 20px;
     }
-    .essential-card h4 {
-        margin-top: 0;
-        color: #00bcd4;
-        font-size: 16px;
+    
+    .metric-card {
+        border-top: 4px solid #0056b3;
+        text-align: center;
+        transition: transform 0.2s ease;
     }
-    </style>""", unsafe_allow_html=True)
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    
+    .metric-title, .small-label { font-size: 13px; color: #6c757d; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+    .metric-value, .big-result { font-size: 26px; font-weight: 700; color: #212529; margin-bottom: 0px; }
+    .result-title { font-size: 16px; font-weight: 600; color: #495057; margin-bottom: 15px; }
+    
+    /* Medical Alert/Info Boxes */
+    .disclaimer-box { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 15px; border-radius: 6px; color: #856404; font-size: 14px; margin-bottom: 15px; }
+    .briefing-box, .doctor-box { background-color: #E3F2FD; border-left: 4px solid #0D6EFD; padding: 15px; border-radius: 6px; color: #004085; font-size: 14px; margin-bottom: 15px; }
+    .agent-box, .ai-box { background-color: #E2E3E5; border-left: 4px solid #383D41; padding: 15px; border-radius: 6px; color: #383D41; font-size: 14px; margin-bottom: 15px; }
+    
+    .status-ok { font-size: 14px; margin: 5px 0; font-weight: 600; color: #198754; }
+    .warning-note { font-size: 13px; color: #856404; }
+    .workspace-title { font-size: 18px; font-weight: 600; color: #212529; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px; }
+    
+    /* Sidebar / Menus */
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; border: 1px solid transparent; transition: 0.2s; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: #f8f9fa; border-color: #dee2e6; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #E3F2FD; border: 1px solid #90CAF9; color: #0056b3; font-weight: 600; }
+    
+    .sidebar-profile { background-color: #F8F9FA; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 20px; }
+    .sidebar-profile h3 { margin: 0; font-size: 16px; color: #212529; font-weight: 600; }
+    .sidebar-profile p { margin: 5px 0 0 0; font-size: 13px; color: #6c757d; }
+    
+    /* Inner nav styling (doctor_dashboard) */
+    .inner-nav-container div[role="radiogroup"] > label > div:first-child { display: none; }
+    .inner-nav-container div[role="radiogroup"] > label { padding: 10px 15px; border-radius: 6px; margin-bottom: 5px; background-color: #f8f9fa; border: 1px solid #dee2e6; cursor: pointer; }
+    .inner-nav-container div[role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] { background-color: #D4EDDA; border-color: #198754; color: #155724; font-weight: 600; }
+    
+    /* Badges */
+    .badge-waiting { background-color: #FFF3CD; color: #856404; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-completed { background-color: #D4EDDA; color: #155724; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-in-consult { background-color: #CCE5FF; color: #004085; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+</style>""", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="profile-header">
@@ -720,8 +840,7 @@ elif menu == "👤 My Profile":
         if st.button("🚪 Logout", type="primary", use_container_width=True):
             st.session_state["authenticated"] = False
             st.session_state["user_role"] = None
-            st.session_state["patient_id"] = None
-            st.session_state["patient_uuid"] = None
+            st.query_params.clear()
             if "pat_menu_selection" in st.session_state:
                 del st.session_state["pat_menu_selection"]
             st.rerun()
@@ -754,12 +873,10 @@ elif menu == "⚙️ Settings":
     # Made logout button full width and distinct
     col_btn, _, _ = st.columns([1, 1, 1])
     with col_btn:
-        if st.button("🚪 Logout", type="primary", use_container_width=True):
+        if st.button("🚪 Logout", type="primary", use_container_width=True, key="logout_settings"):
             st.session_state["authenticated"] = False
             st.session_state["user_role"] = None
-            st.session_state["patient_id"] = None
-            st.session_state["patient_uuid"] = None
+            st.query_params.clear()
             if "pat_menu_selection" in st.session_state:
                 del st.session_state["pat_menu_selection"]
-            st.query_params.clear()
             st.rerun()
