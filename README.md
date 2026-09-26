@@ -8,32 +8,29 @@ This repository contains the source code for a B.Tech CSE Final-Year Project: **
 
 ## 🌟 Key Features
 
-1. **FHIR / EHR Integration**
-   - Ingests mock Electronic Health Records (EHR) in the standard FHIR format (JSON).
-   - Automatically parses patient demographics, medical history, vitals, and current medications.
-   - Clean UI state-management to separate loaded EHR data from active manual clinical assessment.
+1. **Role-Based Workspaces & Supabase Auth**
+   - Secure routing isolating **Patients**, **Doctors**, and **Administrators** into distinct, purpose-built dashboards.
+   - Built on a robust Supabase PostgreSQL backend using lightweight `MemoryStorage` to guarantee ultra-fast, widget-safe rendering.
 
 2. **Machine Learning Diagnostic Engine**
    - Utilizes a Random Forest classifier trained on a deduplicated public symptom-disease dataset containing 132 symptom features.
    - Outputs top-5 disease candidates with probability and confidence levels (High/Moderate/Low).
-   - Features 5-fold cross-validation demonstrating robust dataset-level performance.
+   
+3. **Automated Discharge PDF Generation**
+   - Generates beautifully branded, downloadable PDF Discharge Summaries using `reportlab`.
+   - Incorporates dynamic patient vitals, medications, and doctor annotations directly from the Postgres backend.
 
-3. **Vital-Risk Rules Engine**
-   - Evaluates patient vitals (Temperature, Heart Rate, Blood Pressure, SpO₂) against critical thresholds.
-   - Flags abnormal readings (e.g., Hypoxia, Hypertension, Fever) for priority review.
+4. **Premium UI/UX System**
+   - Developed using custom injected CSS and Streamlit's new container features.
+   - Features a deeply styled dark-mode sidebar, premium pill-shaped segmented tabs, and fluid micro-animations for an ultra-modern clinical feel.
 
-4. **Medication Interaction Checker**
-   - Cross-references current patient medications (from FHIR or manual entry) against a localized knowledge base.
-   - Flags drug-to-drug interactions categorized by severity (e.g., Aspirin + Warfarin = HIGH severity bleeding risk).
+5. **FHIR / EHR Integration**
+   - Ingests Electronic Health Records (EHR) in the standard FHIR format.
+   - Clean UI state-management to separate loaded EHR data from active manual clinical assessment.
 
-5. **Agentic Reasoning & Orchestration**
-   - Synthesizes the ML predictions, vital risks, medication alerts, and retrieved medical knowledge.
+6. **Agentic Reasoning & Orchestration**
+   - Synthesizes ML predictions, vital risks (e.g., Hypoxia, Hypertension), medication alerts (e.g., Aspirin + Warfarin), and retrieved medical knowledge.
    - Utilizes a priority-based logic tree to guide clinical next steps (e.g., Red flags trigger "URGENT CLINICAL REVIEW RECOMMENDED").
-   - Generates a comprehensive **Doctor Briefing** summarizing all contexts into one unified actionable report.
-
-6. **Interactive Streamlit UI**
-   - Clean, modern, and responsive user interface.
-   - Designed to mimic a real-world clinical workspace where a clinician can import EHR data, review it, and append manual symptom observations.
 
 ---
 
@@ -41,51 +38,33 @@ This repository contains the source code for a B.Tech CSE Final-Year Project: **
 
 ```text
 healthcare-agentic-ai/
-├── main.py                     # Main application entry point (Routing)
-├── .env                        # Environment variables
+├── main.py                     # Main application entry point & Role Router
+├── .env                        # Environment variables (Supabase Config)
 ├── requirements.txt            # Project dependencies
 ├── README.md                   # Project documentation
 │
 ├── src/                        # Main source code directory
-│   ├── pages/                  # Streamlit pages (loaded by main.py)
+│   ├── pages/                  # Streamlit workspaces
 │   │   ├── login.py
 │   │   ├── patient_dashboard.py
 │   │   ├── doctor_dashboard.py
 │   │   └── admin_dashboard.py
 │   │
-│   ├── services/               # External API and database clients
-│   │   ├── supabase_client.py
-│   │   └── hospital_client.py
+│   ├── services/               # External APIs, DB, & Utilities
+│   │   ├── supabase_client.py  # Supabase Postgres integration & Auth
+│   │   ├── hospital_client.py  # Mock hospital HIS network client
+│   │   └── pdf_generator.py    # Reportlab PDF discharge summaries
 │   │
 │   ├── agents/                 # Agentic logic and routing
 │   │   ├── hospital_routing_agent.py
 │   │   └── patient_assessment.py
 │   │
 │   ├── ml/                     # Machine Learning pipeline and inference
-│   │   ├── train_model.py
-│   │   ├── predict.py
-│   │   ├── cross_validation.py
-│   │   ├── preprocess_data.py
-│   │   └── eda.py
-│   │
-│   ├── fhir/                   # FHIR parsing logic
-│   │   └── parser.py           
+│   │   └── predict.py
 │   │
 │   └── knowledge/              # Knowledge base scripts and logic
 │       ├── medication_checker.py
 │       └── expand_knowledge.py
-│
-├── data/                       # Datasets & ML models
-│   ├── processed/              # Trained models & graphs
-│   ├── Testing.csv
-│   └── Training.csv
-│
-├── fhir/                       # FHIR payload mocks
-│   └── patient.json
-│
-└── knowledge/                  # Medical & medication JSON rules
-    ├── medical_knowledge.json
-    └── medication_knowledge.json
 ```
 
 ---
@@ -102,82 +81,61 @@ Ensure you have Python 3.9+ installed. Because modern Linux distributions enforc
    ```
 
 2. **Activate the virtual environment:**
-   - On Linux/macOS:
-     ```bash
-     source venv/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     venv\Scripts\activate
-     ```
+   - On Linux/macOS: `source venv/bin/activate`
+   - On Windows: `venv\Scripts\activate`
 
 3. **Install the required libraries:**
-   Install the dependencies directly using `pip` inside the activated virtual environment:
    ```bash
-   pip install streamlit pandas scikit-learn xgboost matplotlib seaborn python-dotenv supabase
+   pip install streamlit pandas scikit-learn xgboost matplotlib seaborn python-dotenv supabase reportlab
+   ```
+
+4. **Environment Variables:**
+   Ensure you create a `.env` file in the root directory containing your Supabase credentials:
+   ```env
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_KEY=your_supabase_anon_key
    ```
 
 ### Running the Application
 
-Once the virtual environment is activated and dependencies are installed, launch the full Agentic AI Healthcare Assistant UI from the project root:
+Launch the full Agentic AI Healthcare Assistant UI from the project root:
 
 ```bash
 python -m streamlit run main.py
 ```
 
-*(Note: Ensure your virtual environment is activated every time you want to run the application).*
-
 The application will be accessible in your web browser at `http://localhost:8501`.
-
----
-
-## 🧪 Testing the Pipeline
-
-You can simulate a complete end-to-end clinical workflow using the provided mock data:
-
-1. **Load FHIR Patient:** Click the `Load FHIR Patient` button in the sidebar/UI. This will read `fhir/patient.json` (Patient: Rahul Sharma) without overwriting manual form inputs.
-2. **Import Data:** Click `Use FHIR Data for Assessment` to import the EHR vitals, demographics, and medications into the active clinical assessment form.
-3. **Add Symptoms:** In the manual symptoms input box, type `vomiting, abdominal_pain`.
-4. **Assess:** Click the `🔍 ASSESS PATIENT` button.
-5. **Review Output:** Watch the Agentic Orchestrator run the ML model, Vital Risk engine, Medication checker, and output the final **Doctor Briefing**.
-
-You can also test specific safety edges, such as manually adding `warfarin` to a patient already taking `aspirin`, or lowering the SpO₂ to `89` to see the vital-risk engine intercept the ML outputs with safety warnings.
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The system follows a modular architecture orchestrated by `main.py`:
+The system follows a modular, state-driven architecture orchestrated by `main.py`:
 
 ```mermaid
 graph TD
-    A[Patient Data] --> B{Streamlit UI}
-    B --> |Load Button| C[Local FHIR Mock JSON]
-    C --> |Parser| B
-    B --> |Demographics, Vitals, History, Meds, Symptoms| D[Agentic AI Orchestrator]
+    A[main.py] --> |Auth Check| B{Role Router}
+    B --> |Patient| C[Patient Dashboard]
+    B --> |Doctor| D[Doctor Dashboard]
+    B --> |Admin| E[Admin Dashboard]
     
-    D --> E[Random Forest ML Model]
-    E --> |Predicts Disease Candidates| D
+    C --> F[Supabase Postgres Backend]
+    D --> F
+    E --> F
     
-    D --> F[Risk Rule Engine]
-    F --> |Evaluates Vitals & Red Flags| D
+    D --> G[Agentic Logic Engine]
+    G --> H[ML Prediction]
+    G --> I[Vital/Meds Rule Engine]
     
-    D --> G[Medication Checker]
-    G --> |Checks Drug Interactions| D
-    
-    D --> H[Knowledge Retrieval]
-    H --> |Fetches Medical Context| D
-    
-    D --> I[Agentic Decision Logic]
-    I --> |Prioritizes Findings & Generates Recommendation| J[Doctor Briefing]
-    
-    J --> K[Final Output Display in UI]
+    D --> J[PDF Generator]
 ```
+
+## ⚡ Performance Optimization
+The application features a strict sequential execution model using `@st.cache_data`. Previous multi-threaded concurrent DB calls were stripped to remove `CachedWidgetWarnings` and internal state deadlocks, drastically improving load times and UI thread stability.
 
 ---
 
 ## 🔒 Safety & Limitations
 
-- **Model Constraints:** The Random Forest model is strict and accepts only 132 predefined binary symptom features. Demographics, vitals, and medications are routed exclusively through the logic/rules engines, bypassing the ML model to maintain feature integrity.
-- **Mock FHIR Data:** The FHIR JSON bundle is synthetically generated and does not correspond to any real patient data.
-- **Clinical Validation:** The system is an academic proof-of-concept for Agentic coordination in healthcare IT. It is not FDA-approved, nor does it have real-world clinical validation.
+- **Model Constraints:** The Random Forest model is strict and accepts only 132 predefined binary symptom features.
+- **Academic Context:** The system is an academic proof-of-concept for Agentic coordination in healthcare IT. It is not FDA-approved, nor does it have real-world clinical validation.
