@@ -209,7 +209,7 @@ st.markdown("""
     
     /* Sidebar Radio to Premium Dark Pills */
     [data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; }
-    [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child { display: none !important; }
+    /* Removed rule that hid the radio dot but also broke the text in newer Streamlit versions */
     [data-testid="stSidebar"] div[role="radiogroup"] label {
         padding: 12px 12px !important;
         margin-left: 16px !important;
@@ -259,7 +259,7 @@ st.markdown("""
 def load_model():
 
     model = joblib.load(
-        "data/processed/random_forest_model.pkl"
+        "models/random_forest_model.pkl"
     )
 
     label_encoder = joblib.load(
@@ -462,30 +462,37 @@ if not st.session_state.get("authenticated") or st.session_state.get("user_role"
 # ============================================================
 st.sidebar.markdown('<div class="sidebar-title" style="margin-bottom: 0;">Main Menu</div>', unsafe_allow_html=True)
 
-menu_options = [MENU_OVERVIEW_DASHBOARD, "AI Assessment Workspace", "System Logout"]
+MENU_PATIENT_DATABASE = "All 15k Patients"
+menu_options = [MENU_OVERVIEW_DASHBOARD, MENU_PATIENT_DATABASE, "AI Assessment Workspace", "System Logout"]
 
 if "app_menu_selection" not in st.session_state:
     st.session_state["app_menu_selection"] = MENU_OVERVIEW_DASHBOARD
 
-def handle_menu_change():
-    if st.session_state.get("app_menu_selection") == "System Logout":
-        st.session_state["app_menu_selection"] = MENU_OVERVIEW_DASHBOARD
-        st.session_state["authenticated"] = False
-        st.session_state["user_role"] = None
-        st.query_params.clear()
+if st.session_state.get("app_menu_selection") == "System Logout":
+    st.session_state["app_menu_selection"] = MENU_OVERVIEW_DASHBOARD
+    st.session_state["authenticated"] = False
+    st.session_state["user_role"] = None
+    
+    js_code = """
+    <script>
+    document.cookie = "auth_role=; path=/; max-age=0";
+    document.cookie = "auth_username=; path=/; max-age=0";
+    document.cookie = "auth_patient_id=; path=/; max-age=0";
+    document.cookie = "auth_patient_uuid=; path=/; max-age=0";
+    window.parent.location.reload();
+    </script>
+    """
+    import streamlit.components.v1 as components
+    components.html(js_code, height=0)
+    st.stop()
 
 # Use radio instead of buttons for a cleaner menu feel
 st.sidebar.radio(
     "Navigation",
     menu_options,
     key="app_menu_selection",
-    on_change=handle_menu_change,
     label_visibility="collapsed"
 )
-
-# If the callback logged us out, force a rerun to go back to the login page
-if not st.session_state.get("authenticated", False):
-    st.rerun()
 
 menu = st.session_state.get("app_menu_selection", MENU_OVERVIEW_DASHBOARD)
 
@@ -587,6 +594,20 @@ if menu == MENU_OVERVIEW_DASHBOARD:
     st.markdown(dashboard_html, unsafe_allow_html=True)
     st.stop()
     
+if menu == MENU_PATIENT_DATABASE:
+    st.markdown("## 📊 Patient Database (15,000 Records)")
+    st.write("Browse and search the synthetic patient dataset used to train the Agentic AI models.")
+    try:
+        from src.services.synthetic_data import load_synthetic_dataset
+        df = load_synthetic_dataset()
+        if df is not None:
+            st.dataframe(df[['patient_id', 'patient_name', 'age', 'sex']], use_container_width=True)
+        else:
+            st.error("Dataset not found")
+    except Exception as e:
+        st.error(f"Could not load the patient dataset: {e}")
+    st.stop()
+
 # If menu == "AI Assessment Workspace", it falls through to the rest of the file
 
 # ============================================================
@@ -595,207 +616,114 @@ if menu == MENU_OVERVIEW_DASHBOARD:
 
 st.subheader("FHIR / EHR Integration")
 
-def handle_patient_change():
-    if "current_assessment" in st.session_state:
-        del st.session_state["current_assessment"]
-    if "saved_assessment_hash" in st.session_state:
-        del st.session_state["saved_assessment_hash"]
-    if "fhir_patient" in st.session_state:
-        del st.session_state["fhir_patient"]
-    # Clear manual assessment form data
-    for key in ["patient_id", "patient_name", "age", "sex", "symptoms_input", "temperature", "heart_rate", "systolic_bp", "diastolic_bp", "spo2", "medical_history", "current_medications"]:
-        if key in st.session_state:
-            del st.session_state[key]
-
-patient_mode = st.radio(
-    "Patient Workflow",
-    ["Existing Patient (FHIR/EHR)", "Register New Patient"],
-    horizontal=True,
-    on_change=handle_patient_change,
-    key="patient_workflow"
-)
-
-st.write("")
-
-if patient_mode == "Existing Patient (FHIR/EHR)":
-
-    # ------------------------------------------------------------
-    # Initialize loaded patient
-    # ------------------------------------------------------------
-
-    fhir_patient = st.session_state.get(
-        "fhir_patient",
-        None
-    )
-
-
-    # ------------------------------------------------------------
-    # Load patients from Supabase
-    # ------------------------------------------------------------
-
-    try:
-
-        available_patients = get_patients()
-
-        if available_patients:
-
-            patient_options = {
-                f"{patient['patient_id']} - {patient['name']}":
-                    patient["patient_id"]
-
-                for patient in available_patients
-            }
-
-
-            col_sel, col_btn = st.columns([3, 1])
-
-
-            with col_sel:
-
-                selected_option = st.selectbox(
-                    "Select or Search Patient",
-                    options=list(
-                        patient_options.keys()
-                    ),
-                    key="patient_selector",
-                    on_change=handle_patient_change
-                )
-
-
-            with col_btn:
-
-                st.write("")
-                st.write("")
-
-                load_clicked = st.button(
-                    "Load FHIR Patient"
-                )
-
-
-            # ----------------------------------------------------
-            # Load selected patient
-            # ----------------------------------------------------
-
-            if load_clicked:
-
-                selected_id = patient_options[
-                    selected_option
-                ]
-
-                # PATIENT SWITCHING: Clear old current assessment if patient changed
-                old_patient_id = st.session_state.get("selected_patient_id")
-                if old_patient_id != selected_id:
-                    for key in ["current_assessment", "saved_assessment_hash"]:
-                        if key in st.session_state:
-                            del st.session_state[key]
-
-                loaded_patient = (
-                    get_patient_profile(
-                        selected_id
-                    )
-                )
-
-
-                if loaded_patient:
-
-                    st.session_state["fhir_patient"] = loaded_patient
-                    st.session_state["selected_patient_id"] = selected_id
-                    st.session_state["selected_patient_uuid"] = loaded_patient.get("patient_uuid")
-                    
-                    # Ensure manual form is synchronized
-                    st.session_state["patient_id"] = selected_id
-                    st.session_state["patient_name"] = loaded_patient.get("patient_name")
-                    st.session_state["age"] = loaded_patient.get("age")
-                    st.session_state["sex"] = loaded_patient.get("gender")
-
-                    st.success(
-                        f"FHIR/EHR patient "
-                        f"{selected_id} loaded successfully."
-                    )
-
-                    st.rerun()
-
-                else:
-
-                    st.error(
-                        f"Patient {selected_id} "
-                        "was not found."
-                    )
-
-
-        else:
-
-            st.warning(
-                "No patients found in Supabase."
-            )
-
-
-    except Exception as e:
-
-        st.error(
-            f"Unable to load patient database: {e}"
-        )
-
-else:
-    st.markdown("### 📝 Register New Patient")
-    # Calculate age automatically if DOB is selected
-    # We remove st.form so that Streamlit can re-run and calculate age immediately when DOB changes
-    
-    reg_name = st.text_input("Patient Name", placeholder="e.g., Suresh Kumar")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        reg_dob = st.date_input("Date of Birth", value=datetime.date(1990, 1, 1), min_value=datetime.date(1990, 1, 1), max_value=datetime.date(2027, 12, 31))
-    
-    # Auto-calculate age
-    today = datetime.date.today()
-    calculated_age = today.year - reg_dob.year - ((today.month, today.day) < (reg_dob.month, reg_dob.day))
-    
-    with col2:
-        reg_age = st.number_input("Age (Auto-calculated)", min_value=0, max_value=120, step=1, value=calculated_age, disabled=True)
+try:
+    if "show_registration" not in st.session_state:
+        st.session_state["show_registration"] = False
         
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col1:
+        search_query = st.text_input(
+            "Search Patient by ID (e.g., P001 or SYN14123)",
+            key="patient_search_input"
+        )
+    with col2:
+        st.write("")
+        st.write("")
+        search_btn = st.button("🔍 Search Patient", type="primary", use_container_width=True)
     with col3:
-        reg_sex = st.selectbox("Sex", ["Male", "Female", "Other"])
-    
-    reg_history = st.text_area("Medical History (comma separated)", placeholder="e.g., Asthma, Hypertension")
-    reg_meds = st.text_area("Current Medications (comma separated)", placeholder="e.g., Albuterol, Lisinopril")
-    
-    submitted = st.button("Register Patient", type="primary")
-    
-    if submitted:
-        if not reg_name.strip():
-            st.error("Patient Name is required.")
-        else:
-            try:
-                from src.services.supabase_client import register_patient, get_patient_profile
-                new_id = register_patient(
-                    name=reg_name.strip(),
-                    age=reg_age,
-                    gender=reg_sex,
-                    dob=str(reg_dob) if reg_dob else None,
-                    medical_history=reg_history,
-                    medications=reg_meds
-                )
-                
-                # Clear old current assessment if patient changed
-                old_patient_id = st.session_state.get("selected_patient_id")
-                if old_patient_id != new_id:
-                    for key in ["current_assessment", "saved_assessment_hash"]:
-                        if key in st.session_state:
-                            del st.session_state[key]
+        st.write("")
+        st.write("")
+        if st.button("➕ Register Patient", use_container_width=True):
+            st.session_state["show_registration"] = not st.session_state["show_registration"]
+            
+    if st.session_state.get("show_registration", False):
+        st.markdown("### 📝 Register New Patient")
+        with st.form("admin_register_patient_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                r_name = st.text_input("Full Name*")
+                r_age = st.number_input("Age*", min_value=0, max_value=120, step=1, value=30)
+                r_dob = st.date_input("Date of Birth")
+            with c2:
+                r_gender = st.selectbox("Gender*", ["Male", "Female", "Other"])
+                r_email = st.text_input("Email (Optional - for portal access)")
+            
+            r_med_hist = st.text_input("Medical History (comma separated)")
+            r_meds = st.text_input("Current Medications (comma separated)")
+            
+            if st.form_submit_button("Register Patient", type="primary"):
+                if r_name:
+                    try:
+                        from src.services.supabase_client import register_patient, sign_up_with_email
+                        
+                        if r_email:
+                            temp_pass = f"Welcome@{r_age}!"
+                            try:
+                                sign_up_with_email(r_email, temp_pass)
+                            except Exception as e:
+                                pass # Might already exist or fail
+                                
+                            new_id = register_patient(r_name, r_age, r_gender, str(r_dob), r_med_hist, r_meds, email=r_email)
+                            st.success(f"Patient {r_name} ({new_id}) registered successfully! Portal access created with password: {temp_pass}")
+                        else:
+                            new_id = register_patient(r_name, r_age, r_gender, str(r_dob), r_med_hist, r_meds)
+                            st.success(f"Patient {r_name} ({new_id}) registered successfully!")
                             
-                st.success(f"Patient registered successfully! Generated ID: {new_id}")
-                loaded_patient = get_patient_profile(new_id)
-                if loaded_patient:
-                    st.session_state["fhir_patient"] = loaded_patient
-                    st.session_state["selected_patient_id"] = new_id
-                    st.session_state["selected_patient_uuid"] = loaded_patient.get("patient_uuid")
-            except Exception as e:
-                st.error(f"Failed to register patient: {e}")
-                if "row-level security" in str(e).lower():
-                    st.error("🔒 SUPABASE RLS ERROR: You need to enable INSERT access for the 'patients', 'conditions', and 'medications' tables in your Supabase Dashboard!")
+                        st.session_state["show_registration"] = False
+                    except Exception as e:
+                        st.error(f"Registration failed: {e}")
+                else:
+                    st.error("Name is required.")
 
+    if search_btn and search_query:
+        search_query = search_query.strip()
+        
+        # 1. Clear old assessment data
+        for key in ["current_assessment", "saved_assessment_hash", "fhir_patient", "selected_patient_id", "selected_patient_uuid", "patient_id", "patient_name", "age", "sex", "temperature", "heart_rate", "systolic_bp", "diastolic_bp", "spo2", "medical_history", "current_medications"]:
+            if key in st.session_state:
+                del st.session_state[key]
+                
+        loaded_patient = None
+        
+        # 2. Try Supabase first
+        try:
+            from src.services.supabase_client import get_patient_profile
+            loaded_patient = get_patient_profile(search_query)
+        except Exception:
+            pass
+            
+        # 3. If not in Supabase, check synthetic dataset
+        if not loaded_patient:
+            if search_query.startswith("SYN"):
+                try:
+                    from src.services.synthetic_data import get_synthetic_patient_by_id
+                    loaded_patient = get_synthetic_patient_by_id(search_query)
+                    
+                    if not loaded_patient:
+                        st.error(f"Patient {search_query} was not found in the 15K synthetic dataset.")
+                except Exception as e:
+                    st.error(f"Patient {search_query} was found in the dataset, but an error occurred while preparing the assessment.")
+                    print(f"Exception preparing assessment for synthetic patient: {e}")
+            else:
+                st.error(f"Patient {search_query} not found in Supabase.")
 
+        # 4. Save to session state if found
+        if loaded_patient:
+            st.session_state["fhir_patient"] = loaded_patient
+            st.session_state["selected_patient_id"] = search_query
+            st.session_state["selected_patient_uuid"] = loaded_patient.get("patient_uuid")
+            st.session_state["patient_id"] = search_query
+            st.session_state["patient_name"] = loaded_patient.get("patient_name")
+            st.session_state["age"] = loaded_patient.get("age")
+            st.session_state["sex"] = loaded_patient.get("gender")
+            
+            st.success(f"Patient {search_query} successfully loaded!")
+            st.rerun()
+        else:
+            st.error(f"Patient ID '{search_query}' not found in Supabase or Synthetic Database.")
+            
+except Exception as e:
+    st.error(f"Search failed: {e}")
 
 # ------------------------------------------------------------
 # Get loaded patient
@@ -1242,91 +1170,102 @@ if assess:
     # --------------------------------------------------------
     # Symptoms
     # --------------------------------------------------------
+    import re
+
+    def normalize_feature_name(name):
+        name = str(name).strip().lower()
+        name = re.sub(r'\s+', '_', name)
+        name = re.sub(r'_+', '_', name)
+        return name
+
+    # Create mapping from normalized name to original feature name
+    feature_mapping = {normalize_feature_name(f): f for f in feature_columns}
 
     entered_symptoms = [
-
         symptom.strip().lower()
-
         for symptom in symptoms_input.split(",")
-
         if symptom.strip()
     ]
-
 
     valid_symptoms = []
     invalid_symptoms = []
 
-
     for symptom in entered_symptoms:
+        # Check aliases first
+        mapped_symptom = symptom
+        if mapped_symptom in symptom_aliases:
+            mapped_symptom = symptom_aliases[mapped_symptom]
+        elif mapped_symptom.replace(" ", "_") in symptom_aliases:
+            mapped_symptom = symptom_aliases[mapped_symptom.replace(" ", "_")]
 
-        normalized = symptom.replace(
-            " ",
-            "_"
-        )
+        normalized = normalize_feature_name(mapped_symptom)
 
-
-        if symptom in symptom_aliases:
-
-            normalized = symptom_aliases[
-                symptom
-            ]
-
-        elif normalized in symptom_aliases:
-
-            normalized = symptom_aliases[
-                normalized
-            ]
-
-
-        if normalized in feature_columns:
-
-            if normalized not in valid_symptoms:
-
-                valid_symptoms.append(
-                    normalized
-                )
-
+        if normalized in feature_mapping:
+            original_feature = feature_mapping[normalized]
+            if original_feature not in valid_symptoms:
+                valid_symptoms.append(original_feature)
         else:
-
-            invalid_symptoms.append(
-                symptom
-            )
-
+            invalid_symptoms.append(symptom)
 
     if invalid_symptoms:
-
         st.warning(
-            "Unrecognized symptoms: "
+            "Symptom not available in the current ML training vocabulary: "
             + ", ".join(invalid_symptoms)
         )
 
-
     if not valid_symptoms:
-
-        st.error(
-            "No recognized symptoms were entered."
-        )
-
+        st.error("No recognized symptoms were entered.")
         st.stop()
-
 
     # --------------------------------------------------------
     # ML Input
     # --------------------------------------------------------
 
     input_data = pd.DataFrame(
-        0,
+        0.0,
         index=[0],
         columns=feature_columns
     )
 
 
     for symptom in valid_symptoms:
+        input_data.loc[0, symptom] = 1
 
-        input_data.loc[
-            0,
-            symptom
-        ] = 1
+    # Populate vital features
+    patient_age = float(st.session_state.get("age") or 30.0)
+    patient_sex_raw = st.session_state.get("sex", "Unknown")
+    
+    sex_mapping_dict = {"Male": 0, "Female": 1, "Other": 2, "Unknown": 3}
+    sex_encoded = sex_mapping_dict.get(patient_sex_raw, 3)
+
+    if "age" in feature_columns:
+        input_data.loc[0, "age"] = patient_age
+    if "sex_encoded" in feature_columns:
+        input_data.loc[0, "sex_encoded"] = sex_encoded
+    if "temperature_c" in feature_columns:
+        input_data.loc[0, "temperature_c"] = float(temperature or 37.0)
+    if "heart_rate_bpm" in feature_columns:
+        input_data.loc[0, "heart_rate_bpm"] = float(heart_rate or 80.0)
+    if "systolic_bp_mmhg" in feature_columns:
+        input_data.loc[0, "systolic_bp_mmhg"] = float(systolic or 120.0)
+    if "diastolic_bp_mmhg" in feature_columns:
+        input_data.loc[0, "diastolic_bp_mmhg"] = float(diastolic or 80.0)
+    if "spo2_percent" in feature_columns:
+        input_data.loc[0, "spo2_percent"] = float(spo2 or 98.0)
+    
+    # Enforce exact order and shape
+    expected_features = list(feature_columns)
+    actual_features = list(input_data.columns)
+    
+    missing = [f for f in expected_features if f not in actual_features]
+    extra = [f for f in actual_features if f not in expected_features]
+    
+    if missing or extra:
+        st.error(f"Feature mismatch detected! Missing: {missing}, Extra: {extra}")
+        st.stop()
+        
+    input_data = input_data.reindex(columns=feature_columns, fill_value=0)
+    assert list(input_data.columns) == list(feature_columns)
 
 
     # --------------------------------------------------------
@@ -2087,6 +2026,48 @@ ML candidate — not a confirmed diagnosis.
                 st.info("This assessment has already been saved.")
             else:
                 try:
+                    # NEW SYNC LOGIC FOR SYNTHETIC PATIENTS
+                    if str(patient_id).startswith("SYN"):
+                        fhir_patient = st.session_state.get("fhir_patient")
+                        
+                        # Fallback: if not in session, try to load it directly
+                        if not fhir_patient or fhir_patient.get("patient_id") != patient_id:
+                            import pandas as pd
+                            try:
+                                from src.services.synthetic_data import load_synthetic_dataset
+                                df = load_synthetic_dataset()
+                                if df is None:
+                                    raise Exception("Dataset not found")
+                                syn_match = df[df['patient_id'] == patient_id]
+                                if not syn_match.empty:
+                                    row = syn_match.iloc[0]
+                                    fhir_patient = {
+                                        "patient_id": row["patient_id"],
+                                        "patient_name": row["patient_name"],
+                                        "age": row["age"],
+                                        "gender": row["sex"],
+                                        "medical_history": [m.strip() for m in str(row["medical_history"]).split(",") if m.strip()],
+                                        "medications": [m.strip() for m in str(row["current_medications"]).split(",") if m.strip()]
+                                    }
+                            except Exception:
+                                pass
+                                
+                        if not fhir_patient or fhir_patient.get("patient_id") != patient_id:
+                            raise ValueError(f"Patient {patient_id} not found in synthetic patient data.")
+                        
+                        try:
+                            from src.services.supabase_client import sync_synthetic_patient_to_supabase
+                            sync_synthetic_patient_to_supabase(
+                                patient_id=patient_id,
+                                name=str(fhir_patient.get("patient_name", "Synthetic Patient")),
+                                age=int(fhir_patient.get("age", 30)),
+                                gender=str(fhir_patient.get("gender", "unknown")),
+                                medical_history=fhir_patient.get("medical_history", []),
+                                medications=fhir_patient.get("medications", [])
+                            )
+                        except Exception as sync_e:
+                            raise ValueError(f"Patient {patient_id} was found, but could not be synchronized with Supabase. ({sync_e})")
+
                     # Save to Supabase
                     save_assessment(
                         patient_id=patient_id,
@@ -2126,7 +2107,10 @@ history_patient_uuid = st.session_state.get("selected_patient_uuid")
 
 if history_patient_uuid:
     try:
-        history = get_assessment_history_by_uuid(history_patient_uuid)
+        if history_patient_uuid.startswith("syn-"):
+            history = []
+        else:
+            history = get_assessment_history_by_uuid(history_patient_uuid)
         
         if history:
             for past_assessment in history:

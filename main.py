@@ -66,16 +66,8 @@ if not st.session_state.get("authenticated") and "code" in st.query_params:
                 st.session_state["patient_id"] = pat.get("patient_id")
                 st.session_state["patient_uuid"] = pat.get("id")
             else:
-                # Fallback to P001 for demo if Google email not in DB
-                st.session_state["patient_id"] = "P001"
-                try:
-                    p001_res = get_supabase_client().table("patients").select("id").eq("patient_id", "P001").execute()
-                    if p001_res.data:
-                        st.session_state["patient_uuid"] = p001_res.data[0]["id"]
-                    else:
-                        st.session_state["patient_uuid"] = "fallback-uuid"
-                except:
-                    st.session_state["patient_uuid"] = "fallback-uuid"
+                st.session_state["patient_id"] = "unregistered"
+                st.session_state["patient_uuid"] = "unregistered"
             
             # Write to cookie for OAuth login persistence
             patient_id = st.session_state.get("patient_id", "")

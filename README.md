@@ -139,3 +139,23 @@ The application features a strict sequential execution model using `@st.cache_da
 
 - **Model Constraints:** The Random Forest model is strict and accepts only 132 predefined binary symptom features.
 - **Academic Context:** The system is an academic proof-of-concept for Agentic coordination in healthcare IT. It is not FDA-approved, nor does it have real-world clinical validation.
+
+---
+
+## 🔑 Demo Credentials
+
+To access the Patient Portal and view the synthetic patient profiles, you can use the following example credentials:
+
+**Patient 1**
+- **ID:** `SYN00001`
+- **Password:** `Patient@00001`
+
+**Patient 2**
+- **ID:** `SYN00002`
+- **Password:** `Patient@00002`
+
+**Patient 3**
+- **ID:** `SYN00003`
+- **Password:** `Patient@00003`
+
+*(Note: The `scripts/create_patient_accounts.py` bulk import script must be executed to provision the 15,000 demo accounts against your Supabase backend first.)*

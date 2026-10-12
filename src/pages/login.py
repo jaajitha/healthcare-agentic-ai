@@ -21,8 +21,14 @@ def initialize_session():
     if "otp_sent_to" not in st.session_state:
         st.session_state["otp_sent_to"] = None
 
-def _finalize_patient_fallback():
+def _finalize_patient_fallback(original_username=None):
     from src.services.supabase_client import get_supabase_client
+    
+    if original_username and str(original_username).startswith("SYN"):
+        st.session_state["patient_id"] = original_username
+        st.session_state["patient_uuid"] = "unregistered"
+        return
+        
     st.session_state["patient_id"] = "P001"
     try:
         p001_res = get_supabase_client().table("patients").select("id").eq("patient_id", "P001").execute()
@@ -30,26 +36,61 @@ def _finalize_patient_fallback():
     except Exception:
         st.session_state["patient_uuid"] = "fallback-uuid"
 
-def _finalize_patient(email):
+def _finalize_patient(email_or_id, auth_user_id=None, original_username=None):
+    from src.services.supabase_client import get_supabase_client
+    client = get_supabase_client()
+    
     try:
+        if auth_user_id:
+            # We logged in via Supabase Auth. Fetch the mapping!
+            res = client.table("patient_auth").select("patient_id").eq("auth_user_id", auth_user_id).execute()
+            if res.data:
+                # We have the patients.id UUID
+                real_patient_uuid = res.data[0]["patient_id"]
+                st.session_state["patient_uuid"] = real_patient_uuid
+                
+                # Fetch the readable patient code (e.g. SYN00001)
+                pat_res = client.table("patients").select("patient_id").eq("id", real_patient_uuid).execute()
+                if pat_res.data:
+                    st.session_state["patient_id"] = pat_res.data[0]["patient_id"]
+                else:
+                    st.session_state["patient_id"] = original_username
+                return
+                
+        # If no mapping was found or not logged in via Supabase Auth (e.g. fallback)
         from src.services.supabase_client import get_patient_by_email
-        patient = get_patient_by_email(email)
+        patient = get_patient_by_email(email_or_id)
         if patient:
             st.session_state["patient_id"] = patient.get("patient_id")
             st.session_state["patient_uuid"] = patient.get("id")
         else:
-            _finalize_patient_fallback()
-    except Exception:
-        _finalize_patient_fallback()
+            # Check by patient_id
+            pat_res = client.table("patients").select("id, patient_id").eq("patient_id", original_username or email_or_id).execute()
+            if pat_res.data:
+                st.session_state["patient_id"] = pat_res.data[0]["patient_id"]
+                st.session_state["patient_uuid"] = pat_res.data[0]["id"]
+            else:
+                if (original_username or email_or_id).startswith("SYN"):
+                    st.session_state["patient_id"] = original_username or email_or_id
+                    st.session_state["patient_uuid"] = "unregistered"
+                else:
+                    _finalize_patient_fallback(original_username or email_or_id)
+    except Exception as e:
+        print(f"Error finalizing patient: {e}")
+        if (original_username or email_or_id).startswith("SYN"):
+            st.session_state["patient_id"] = original_username or email_or_id
+            st.session_state["patient_uuid"] = "unregistered"
+        else:
+            _finalize_patient_fallback(original_username or email_or_id)
 
-def finalize_login(role, email):
+def finalize_login(role, email, auth_user_id=None, original_username=None):
     st.session_state["authenticated"] = True
     st.session_state["user_role"] = role
     st.session_state["username"] = email
     st.session_state["otp_sent_to"] = None
     
     if role == "patient":
-        _finalize_patient(email)
+        _finalize_patient(email, auth_user_id=auth_user_id, original_username=original_username)
         
     # Write to cookie for persistence using native JS to prevent st.rerun race condition
     patient_id = st.session_state.get("patient_id", "")
@@ -77,10 +118,17 @@ def finalize_login(role, email):
     st.stop()  # Stop Python execution to allow the JS to render and reload
 
 def _do_patient_login(username, password):
-    if username.startswith("P00") and password == "Patient@123":
-        finalize_login("patient", username)
-    else:
-        st.error("Invalid Email/ID or Password")
+    if username.startswith("SYN") and len(username) > 3:
+        num_part = username[3:]
+        expected_pass = f"Patient@{num_part}"
+        if password == expected_pass:
+            finalize_login("patient", username, original_username=username)
+            return
+    if (username.startswith("P00") or username.startswith("SYN")) and password == "Patient@123":
+        finalize_login("patient", username, original_username=username)
+        return
+        
+    st.error("Invalid Email/ID or Password")
 
 def _do_doctor_login(username, password):
     valid_doctors = ["dr.sreedhar.b@apollohospitals.com", "dr.bharathi.mv@apollohospitals.com", "doctor"]
@@ -99,9 +147,15 @@ def do_login(role, username, password):
     with st.spinner("Authenticating securely..."):
         try:
             from src.services.supabase_client import sign_in_with_email
-            res = sign_in_with_email(username, password)
+            
+            # Translate patient ID to email
+            auth_username = username
+            if role == "patient" and (username.startswith("SYN") or username.startswith("P0")):
+                auth_username = f"{username.lower()}@demo.healthcare.local"
+                
+            res = sign_in_with_email(auth_username, password)
             if res and hasattr(res, 'user') and res.user:
-                finalize_login(role, res.user.email)
+                finalize_login(role, res.user.email, auth_user_id=res.user.id, original_username=username)
                 return
         except Exception:
             pass
@@ -130,11 +184,28 @@ def do_otp_verify(role, email, code):
         from src.services.supabase_client import verify_otp
         res = verify_otp(email, code)
         if res and hasattr(res, 'user') and res.user:
-            finalize_login(role, res.user.email)
+            finalize_login(role, res.user.email, auth_user_id=res.user.id, original_username=email)
         else:
             st.error("Invalid or expired code.")
     except Exception as e:
         st.error(f"Verification failed: {e}")
+
+def do_signup(email, password, name, age, gender, dob):
+    with st.spinner("Registering securely..."):
+        try:
+            from src.services.supabase_client import sign_up_with_email, register_patient
+            res = sign_up_with_email(email, password)
+            if res and hasattr(res, 'user') and res.user:
+                try:
+                    register_patient(name, age, gender, str(dob), None, None, email=email)
+                except Exception as e:
+                    print(f"Profile creation failed: {e}")
+                
+                st.success("Successfully registered! You can now log in.")
+            else:
+                st.error("Registration failed. Please try again.")
+        except Exception as e:
+            st.error(f"Error during registration: {e}")
 
 def render_google_button():
     if "google_auth_url" not in st.session_state:
@@ -186,7 +257,7 @@ def _render_patient_tab():
             st.session_state["otp_sent_to"] = None
             st.rerun()
     else:
-        mode = st.radio("Login Method", ["Password", "Magic Link"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("Login Method", ["Password", "Sign Up", "Magic Link"], horizontal=True, label_visibility="collapsed")
         if mode == "Password":
             with st.form("patient_login_form", clear_on_submit=False, border=False):
                 p_user = st.text_input("Email / ID", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
@@ -200,6 +271,20 @@ def _render_patient_tab():
                     
                 if st.form_submit_button("Sign in", type="primary", use_container_width=True):
                     do_login("patient", p_user, p_pass)
+        elif mode == "Sign Up":
+            with st.form("patient_signup_form", clear_on_submit=False, border=False):
+                s_email = st.text_input("Email Address", placeholder="jaajitha@gmail.com")
+                s_pass = st.text_input("Password", type="password", placeholder="Password")
+                s_name = st.text_input("Full Name", placeholder="Jane Doe")
+                s_age = st.number_input("Age", min_value=0, max_value=120, step=1, value=30)
+                s_gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+                s_dob = st.date_input("Date of Birth")
+                
+                if st.form_submit_button("Sign up", type="primary", use_container_width=True):
+                    if s_email and s_pass and s_name:
+                        do_signup(s_email, s_pass, s_name, s_age, s_gender, s_dob)
+                    else:
+                        st.error("Please fill out Email, Password, and Name.")
         else:
             with st.form("otp_request_form", clear_on_submit=False, border=False):
                 otp_email = st.text_input("Email Address", placeholder="jaajitha@gmail.com", label_visibility="collapsed")
@@ -393,7 +478,7 @@ div[data-testid="stForm"] { padding: 0 !important; border: none !important; marg
     
     # Right Form Container
     st.markdown('<div class="auth-title">Log in</div>', unsafe_allow_html=True)
-    st.markdown('<div class="auth-subtitle">Welcome back to your secure portal.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="auth-subtitle">Welcome back to your secure portal.<br><br><i>Demo patient portal — synthetic data for academic demonstration.</i></div>', unsafe_allow_html=True)
     
     tab1, tab2, tab3 = st.tabs(["Patient", "Doctor", "Clinical Staff"])
     

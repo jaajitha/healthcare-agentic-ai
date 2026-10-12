@@ -22,3 +22,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+# Large trained ML models
+agentic_ai_trained_models/agentic_ai_trained_models/random_forest_model.pkl
+models/random_forest_model.pkl

@@ -165,7 +165,7 @@ st.markdown("""
     
     /* Sidebar Radio to Premium Dark Pills */
     [data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; }
-    [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child { display: none !important; }
+    /* Removed rule that hid the radio dot but also broke the text in newer Streamlit versions */
     [data-testid="stSidebar"] div[role="radiogroup"] label {
         padding: 12px 12px !important;
         margin-left: 16px !important;
@@ -410,10 +410,21 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
     except Exception:
         p_data = None
         
+    if not p_data and str(selected_code).startswith("SYN"):
+        try:
+            from src.services.synthetic_data import get_synthetic_patient_by_id
+            p_data = get_synthetic_patient_by_id(selected_code)
+            if not p_data:
+                st.error(f"Patient {selected_code} was not found in the 15K synthetic dataset.")
+                st.stop()
+        except Exception as e:
+            st.error(f"Patient {selected_code} was found in the dataset, but an error occurred while preparing the assessment.")
+            print(f"Exception preparing assessment for synthetic patient: {e}")
+            st.stop()
+
     if not p_data:
         st.error("Unable to load patient information.")
         st.stop()
-        
     # --------------------------------------------------------
     # CONCURRENT DATA FETCHING FOR DOCTOR WORKSPACE
     # --------------------------------------------------------
@@ -518,7 +529,7 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
     # --------------------------------------------------------
     with tabs[1]:
         if latest_briefing:
-            st.write(latest_briefing.get("summary"))
+            st.markdown(latest_briefing.get("summary"), unsafe_allow_html=True)
         else:
             st.info("No briefing available for this patient.")
 

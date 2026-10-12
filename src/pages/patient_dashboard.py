@@ -45,20 +45,143 @@ with st.spinner("Loading health records..."):
         st.error(f"Unable to load your medical information. Error: {str(e)}")
         st.stop()
         
+    is_unregistered_synthetic = False
+    
     if not patient_profile:
-        st.error("Unable to load your medical information. Please try again or contact the hospital.")
-        st.stop()
-        
-    visits_response = get_patient_visits(selected_patient_uuid)
-    medications_response = get_patient_medications(selected_patient_uuid)
-    ai_assessments = get_assessment_history_by_uuid(selected_patient_uuid)
-    risk_flags = get_patient_risk_flags(selected_patient_uuid)
-    med_alerts = get_patient_medication_alerts(selected_patient_uuid)
+        if str(selected_patient_code).startswith("SYN"):
+            try:
+                from src.services.synthetic_data import get_synthetic_patient_by_id
+                synthetic_data = get_synthetic_patient_by_id(selected_patient_code)
+                if synthetic_data:
+                    patient_profile = synthetic_data
+                    is_unregistered_synthetic = True
+            except Exception as e:
+                pass
+                
+        if not patient_profile:
+            st.error("No matching patient record exists in the database. Please contact the hospital to complete your registration.")
+            st.stop()
+            
+    if is_unregistered_synthetic:
+        st.warning("Your demo patient account is not linked to a patient record.")
+        if st.button("Register & Link Hospital Record", type="primary"):
+            try:
+                from src.services.supabase_client import register_patient, get_current_session, get_supabase_client
+                register_patient(
+                    name=patient_profile.get("patient_name"),
+                    age=patient_profile.get("age"),
+                    gender=patient_profile.get("gender"),
+                    dob=None,
+                    medical_history=patient_profile.get("medical_history"),
+                    medications=patient_profile.get("medications"),
+                    patient_id_override=selected_patient_code
+                )
+                
+                # Fetch the newly created patient
+                client = get_supabase_client()
+                pat_res = client.table("patients").select("id").eq("patient_id", selected_patient_code).execute()
+                if pat_res.data:
+                    new_patient_uuid = pat_res.data[0]["id"]
+                    
+                    # Also link it in patient_auth
+                    session = get_current_session()
+                    if session and session.user:
+                        client.table("patient_auth").insert({
+                            "auth_user_id": session.user.id,
+                            "patient_id": new_patient_uuid
+                        }).execute()
+                        
+                st.success("Successfully registered! Please refresh the page.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Registration failed: {e}")
+                
+        # Populate demo UI with data from the synthetic dataset
+        medications_response = []
+        if patient_profile.get("medications"):
+            for med in patient_profile["medications"]:
+                if str(med).lower() != "nan" and med.strip():
+                    medications_response.append({
+                        "medication_name": med,
+                        "doctor_name": "Demo Provider",
+                        "dosage": "Standard",
+                        "frequency": "Daily",
+                        "duration": "14 Days",
+                        "instructions": "Take as directed by synthetic profile."
+                    })
+                    
+        prog = patient_profile.get("prognosis")
+        visits_response = []
+        ai_assessments = []
+        if prog and str(prog).lower() != "nan":
+            visits_response.append({
+                "visit_date": "2026-10-01",
+                "diagnosis": str(prog).title(),
+                "doctor_notes": "Patient presented with " + ", ".join(patient_profile.get("symptoms", ["routine symptoms"])),
+                "future_plan": "Continue current demo care plan.",
+                "follow_up_date": "2026-11-01",
+                "doctors": {"name": "Demo Provider"}
+            })
+            
+            ai_assessments = [{
+                "created_at": "2026-10-01T10:00:00Z",
+                "top_prediction": str(prog).title(),
+                "confidence_level": "High"
+            }]
+            
+        risk_flags = []
+        med_alerts = []
+    else:
+        # Resolve real Supabase UUID from the database profile
+        resolved_patient_uuid = patient_profile.get("patient_uuid")
+        if not resolved_patient_uuid:
+            st.error("Invalid database record. Missing patient UUID.")
+            st.stop()
+            
+        # Execute patient-specific queries using the resolved database UUID
+        visits_response = get_patient_visits(resolved_patient_uuid)
+        medications_response = get_patient_medications(resolved_patient_uuid)
+        ai_assessments = get_assessment_history_by_uuid(resolved_patient_uuid)
+        risk_flags = get_patient_risk_flags(resolved_patient_uuid)
+        med_alerts = get_patient_medication_alerts(resolved_patient_uuid)
 
     # Process results
     doctor_visits = visits_response if visits_response else []
-    latest_visit = doctor_visits[0] if doctor_visits else None
     doctor_medications = medications_response if medications_response else []
+    
+    # If this is a synthetic patient and they have no DB visits/meds, populate from dataset profile
+    if str(selected_patient_code).startswith("SYN"):
+        prog = patient_profile.get("prognosis", "")
+        if not doctor_visits and prog and str(prog).lower() != "nan":
+            doctor_visits = [{
+                "visit_date": "2026-10-01",
+                "diagnosis": str(prog).title(),
+                "doctor_notes": "Patient presented with " + ", ".join(patient_profile.get("symptoms", ["routine symptoms"])),
+                "future_plan": "Continue current demo care plan.",
+                "follow_up_date": "2026-11-01",
+                "doctors": {"name": "Demo Provider"}
+            }]
+        
+        if not doctor_medications and patient_profile.get("medications"):
+            for med in patient_profile["medications"]:
+                if str(med).lower() != "nan" and med.strip():
+                    doctor_medications.append({
+                        "medication_name": med,
+                        "doctor_name": "Demo Provider",
+                        "dosage": "Standard",
+                        "frequency": "Daily",
+                        "duration": "14 Days",
+                        "instructions": "Take as directed by synthetic profile."
+                    })
+                    
+        if not ai_assessments and prog and str(prog).lower() != "nan":
+            ai_assessments = [{
+                "created_at": "2026-10-01T10:00:00Z",
+                "top_prediction": str(prog).title(),
+                "confidence_level": "High"
+            }]
+
+    latest_visit = doctor_visits[0] if doctor_visits else None
     latest_assessment = ai_assessments[0] if ai_assessments else None
 
 # ============================================================
@@ -168,11 +291,14 @@ with st.sidebar:
 # MAIN HEADER
 # ============================================================
 st.markdown(f"""
-<div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 30px 40px; border-radius: 16px; color: white; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+<div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 30px 40px; border-radius: 16px; color: white; margin-bottom: 10px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
     <h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.5px; color: white; border: none;">Welcome back, {patient_profile.get('patient_name')}</h1>
     <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 16px;">Access your health records, view AI assessments, and manage your medical history.</p>
 </div>
 """, unsafe_allow_html=True)
+
+st.info("Demo environment — patient data shown here is synthetic and intended for academic demonstration.")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================================================
 # NAVIGATION TABS

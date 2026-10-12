@@ -136,25 +136,28 @@ def get_patient_by_email(email):
 # REGISTER NEW PATIENT
 # ============================================================
 
-def register_patient(name, age, gender, dob, medical_history, medications):
-    response = (
-        get_supabase_client()
-        .table("patients")
-        .select("patient_id")
-        .order("patient_id", desc=True)
-        .limit(1)
-        .execute()
-    )
-    
-    if response.data:
-        last_id = response.data[0]["patient_id"]
-        try:
-            num = int(last_id.replace("P", ""))
-            new_id = f"P{num + 1:03d}"
-        except:
-            new_id = "P001"
+def register_patient(name, age, gender, dob, medical_history, medications, email=None, patient_id_override=None):
+    if patient_id_override:
+        new_id = patient_id_override
     else:
-        new_id = "P001"
+        response = (
+            get_supabase_client()
+            .table("patients")
+            .select("patient_id")
+            .order("patient_id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        
+        if response.data:
+            last_id = response.data[0]["patient_id"]
+            try:
+                num = int(last_id.replace("P", ""))
+                new_id = f"P{num + 1:03d}"
+            except:
+                new_id = "P001"
+        else:
+            new_id = "P001"
         
     patient_data = {
         "patient_id": new_id,
@@ -163,6 +166,9 @@ def register_patient(name, age, gender, dob, medical_history, medications):
         "gender": gender,
         "date_of_birth": dob
     }
+    
+    if email:
+        patient_data["email"] = email
     
     patient_res = get_supabase_client().table("patients").insert(patient_data).execute()
     if not patient_res.data:
@@ -197,6 +203,41 @@ def register_patient(name, age, gender, dob, medical_history, medications):
             get_supabase_client().table("medications").insert(meds_data).execute()
             
     return new_id
+
+def sync_synthetic_patient_to_supabase(patient_id, name, age, gender, medical_history=None, medications=None):
+    client = get_supabase_client()
+    res = client.table("patients").select("id").eq("patient_id", patient_id).execute()
+    if res.data:
+        return res.data[0]["id"]
+        
+    patient_data = {
+        "patient_id": patient_id,
+        "name": name,
+        "age": age,
+        "gender": gender,
+        "date_of_birth": "1990-01-01"
+    }
+    
+    patient_res = client.table("patients").insert(patient_data).execute()
+    if not patient_res.data:
+        raise Exception("Failed to sync synthetic patient to Supabase.")
+        
+    patient_uuid = patient_res.data[0]["id"]
+    
+    if medical_history:
+        history_items = [item.strip() for item in medical_history.split(",") if item.strip()] if isinstance(medical_history, str) else medical_history
+        if history_items:
+            conditions_data = [{"patient_id": patient_uuid, "condition_name": item} for item in history_items]
+            client.table("conditions").insert(conditions_data).execute()
+            
+    if medications:
+        med_items = [item.strip() for item in medications.split(",") if item.strip()] if isinstance(medications, str) else medications
+        if med_items:
+            meds_data = [{"patient_id": patient_uuid, "medication_name": item} for item in med_items]
+            client.table("medications").insert(meds_data).execute()
+            
+    return patient_uuid
+
 
 # ============================================================
 # GET ALL PATIENTS
@@ -510,13 +551,12 @@ def save_assessment(
 # GET PATIENT ASSESSMENT HISTORY
 # ============================================================
 
-@st.cache_data(ttl="5m")
 def get_assessment_history_by_uuid(patient_uuid):
     """
     Retrieves the assessment history for a specific patient using their UUID.
     """
     
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     
     # Get assessments
@@ -540,7 +580,7 @@ def get_assessment_history_by_uuid(patient_uuid):
 # ============================================================
 
 def get_patient_observations(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     response = (
         get_supabase_client()
@@ -552,9 +592,8 @@ def get_patient_observations(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl="5m")
 def get_patient_risk_flags(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     response = (
         get_supabase_client()
@@ -566,9 +605,8 @@ def get_patient_risk_flags(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl="5m")
 def get_patient_medication_alerts(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     response = (
         get_supabase_client()
@@ -580,22 +618,20 @@ def get_patient_medication_alerts(patient_uuid):
     )
     return response.data
 
-@st.cache_data(ttl="5m")
 def get_patient_visits(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     res = get_supabase_client().table("doctor_visits").select("*, doctors(name)").eq("patient_id", patient_uuid).order("visit_date", desc=True).execute()
     return res.data
 
-@st.cache_data(ttl="5m")
 def get_patient_medications(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     res = get_supabase_client().table("doctor_medications").select("*").eq("patient_id", patient_uuid).execute()
     return res.data
 
 def get_patient_doctor_briefings(patient_uuid):
-    if not patient_uuid:
+    if not patient_uuid or str(patient_uuid).startswith("syn-"):
         return []
     response = (
         get_supabase_client()
