@@ -147,7 +147,7 @@ def find_relevant_speciality(symptoms):
 
 def find_relevant_doctors(speciality):
     """
-    Find doctors at Apollo Hospitals, Aragonda
+    Find doctors at Apollo Hospitals
     matching the requested speciality.
     """
 
@@ -238,7 +238,7 @@ def route_patient_to_hospital(
 ):
     """
     Route a patient toward a relevant speciality
-    and listed doctor at Apollo Hospitals, Aragonda.
+    and listed doctor at Apollo Hospitals.
 
     Parameters
     ----------
@@ -327,7 +327,7 @@ def route_patient_to_hospital(
             "message": (
                 f"{speciality} was identified as potentially "
                 "relevant, but it is not listed as a department "
-                "in the Apollo Aragonda hospital data."
+                "in the Apollo Hospitals data."
             ),
             "hospital": hospital,
             "speciality": speciality,

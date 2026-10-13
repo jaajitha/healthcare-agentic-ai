@@ -44,7 +44,10 @@ def get_hospital(hospital_code="AH-ARAGONDA"):
     if not response.data:
         return None
 
-    return response.data[0]
+    hospital_data = response.data[0].copy()
+    if hospital_data.get("name") and "aragonda" in hospital_data.get("name", "").lower():
+        hospital_data["name"] = "Apollo Hospitals"
+    return hospital_data
 
 
 # ============================================================

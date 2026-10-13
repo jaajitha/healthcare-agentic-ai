@@ -436,14 +436,14 @@ with st.sidebar:
 
 st.markdown(
     '<div class="main-title">'
-    'Apollo Aragonda AI Dashboard'
+    'Apollo Hospitals AI Dashboard'
     '</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
     '<div class="main-subtitle">'
-    'Intelligent clinical decision-support and autonomous routing system.'
+    'Intelligent clinical decision-support and hospital routing system.'
     '</div>',
     unsafe_allow_html=True
 )
@@ -1732,7 +1732,7 @@ ML candidate — not a confirmed diagnosis.
     # ========================================================
     # ROUTING
     # ========================================================
-    st.markdown("### 🏥 Apollo Aragonda Hospital Routing")
+    st.markdown("### 🏥 Apollo Hospitals Routing")
     
     routing_info = ca.get("hospital_routing_info", {})
     if routing_info and routing_info.get("success"):

@@ -468,7 +468,7 @@ div[data-testid="stForm"] { padding: 0 !important; border: none !important; marg
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
             </svg>
-            <span>Apollo Aragonda</span>
+            <span>Apollo Hospitals</span>
         </div>
         <h1>Intelligent healthcare,<br>built for the future.</h1>
         <p>Access your medical records, manage appointments, and connect with your care team through our secure AI-driven portal.</p>
@@ -478,7 +478,7 @@ div[data-testid="stForm"] { padding: 0 !important; border: none !important; marg
     
     # Right Form Container
     st.markdown('<div class="auth-title">Log in</div>', unsafe_allow_html=True)
-    st.markdown('<div class="auth-subtitle">Welcome back to your secure portal.<br><br><i>Demo patient portal — synthetic data for academic demonstration.</i></div>', unsafe_allow_html=True)
+    st.markdown('<div class="auth-subtitle">Welcome back to your secure portal.</div>', unsafe_allow_html=True)
     
     tab1, tab2, tab3 = st.tabs(["Patient", "Doctor", "Clinical Staff"])
     

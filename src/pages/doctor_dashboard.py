@@ -243,7 +243,7 @@ st.sidebar.markdown(f'''
 <div class="sidebar-profile">
     <h3 style="color: #f8fafc; font-size: 20px; font-weight: 700; margin-bottom: 4px;">👨‍⚕️ {doctor_name}</h3>
     <p style="color: #38bdf8; font-weight: 600; font-size: 14px; margin-top: 0; margin-bottom: 4px;">{doctor_speciality}</p>
-    <p style="color: #64748b; font-size: 12px; margin-top: 0;">Apollo Hospitals, Aragonda</p>
+    <p style="color: #64748b; font-size: 12px; margin-top: 0;">Apollo Hospitals</p>
 </div>
 <hr style="border-color: #1e293b; margin-top: 15px; margin-bottom: 20px;">
 ''', unsafe_allow_html=True)
@@ -268,7 +268,7 @@ if menu == MENU_DR_PROFILE:
     st.markdown('<h2 class="section-title">👨‍⚕️ Doctor Profile</h2>', unsafe_allow_html=True)
     st.write(f"**Name:** {doctor_name}")
     st.write(f"**Speciality:** {doctor_speciality}")
-    st.write("**Hospital:** Apollo Hospitals, Aragonda")
+    st.write("**Hospital:** Apollo Hospitals")
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.clear()
@@ -293,7 +293,7 @@ if not st.session_state.get("doctor_selected_patient_code") and menu != MENU_DR_
     st.markdown(f"""
     <div class="patient-header">
         <h1>👨‍⚕️ Doctor Dashboard</h1>
-        <p>Clinical workspace — {doctor_name} | Apollo Hospitals, Aragonda</p>
+        <p>Clinical workspace — {doctor_name} | Apollo Hospitals</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -500,7 +500,7 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
                 <div><span style='opacity: 0.7;'>Age:</span> <br><strong>{p_data.get('age')} Years</strong></div>
                 <div><span style='opacity: 0.7;'>Gender:</span> <br><strong>{str(p_data.get('gender')).capitalize()}</strong></div>
                 <div><span style='opacity: 0.7;'>Date of Birth:</span> <br><strong>{p_data.get('date_of_birth', 'N/A')}</strong></div>
-                <div><span style='opacity: 0.7;'>Hospital:</span> <br><strong>Apollo Hospitals, Aragonda</strong></div>
+                <div><span style='opacity: 0.7;'>Hospital:</span> <br><strong>Apollo Hospitals</strong></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -539,7 +539,7 @@ if menu == MENU_TODAY_PATIENTS and st.session_state.get("doctor_selected_patient
     # 7. HOSPITAL ROUTING
     # --------------------------------------------------------
     with tabs[2]:
-        st.markdown('**Apollo Hospitals, Aragonda**')
+        st.markdown('**Apollo Hospitals**')
         st.write("**Suggested Speciality:** Appropriate Department Based on Symptoms")
         st.write("**Relevant Doctor:** Recommended available specialist")
         st.caption("Hospital routing is decision support based on reported symptoms and available hospital data. Final clinical decisions remain with the treating doctor.")
